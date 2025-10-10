@@ -1,0 +1,39 @@
+spring:
+  config:
+    activate:
+      on-profile: local
+
+  application:
+    name: budgeting-app-backend
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/mydatabase
+    username: user
+    password: password
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update  # Use update for local development to preserve data
+    show-sql: true      # Show SQL queries for debugging
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        "[format_sql]": true
+
+  # Development-friendly logging
+  logging:
+    level:
+      org.springframework.web: DEBUG
+      org.springframework.security: DEBUG
+      org.hibernate.SQL: DEBUG
+      org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+# JWT Configuration for local development
+jwt:
+  secret: ${JWT_SECRET:localDevelopmentSecretThatIsLongEnoughForHS256AlgorithmUsage}
+  expiration: ${JWT_EXPIRATION:86400000} # 24 hours in milliseconds
+
+# Server configuration
+server:
+  port: 8080
