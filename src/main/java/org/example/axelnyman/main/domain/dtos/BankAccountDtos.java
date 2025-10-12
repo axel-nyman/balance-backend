@@ -1,0 +1,31 @@
+package org.example.axelnyman.main.domain.dtos;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+public class BankAccountDtos {
+
+    public record CreateBankAccountRequest(
+            @NotBlank(message = "Name is required")
+            String name,
+
+            @Size(max = 500, message = "Description must be less than 500 characters")
+            String description,
+
+            @PositiveOrZero(message = "Initial balance must be zero or positive")
+            BigDecimal initialBalance
+    ) {}
+
+    public record BankAccountResponse(
+            UUID id,
+            String name,
+            String description,
+            BigDecimal currentBalance,
+            LocalDateTime createdAt
+    ) {}
+}

@@ -2,6 +2,7 @@ package org.example.axelnyman.main.domain.abstracts;
 
 import java.util.Optional;
 
+import org.example.axelnyman.main.domain.dtos.BankAccountDtos.*;
 import org.example.axelnyman.main.domain.dtos.UserDtos.*;
 
 /**
@@ -13,4 +14,7 @@ import org.example.axelnyman.main.domain.dtos.UserDtos.*;
 public interface IDomainService {
 
     Optional<UserResponse> getUserProfile(Long userId);
+
+    // Bank Account operations
+    BankAccountResponse createBankAccount(CreateBankAccountRequest request);
 }

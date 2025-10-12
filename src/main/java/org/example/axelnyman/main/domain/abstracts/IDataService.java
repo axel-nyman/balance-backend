@@ -2,6 +2,8 @@ package org.example.axelnyman.main.domain.abstracts;
 
 import java.util.Optional;
 
+import org.example.axelnyman.main.domain.model.BalanceHistory;
+import org.example.axelnyman.main.domain.model.BankAccount;
 import org.example.axelnyman.main.domain.model.User;
 
 /**
@@ -19,4 +21,12 @@ public interface IDataService {
     boolean userExistsByEmailIncludingDeleted(String email);
 
     Optional<User> findActiveUserByEmail(String email);
+
+    // Bank Account operations
+    BankAccount saveBankAccount(BankAccount bankAccount);
+
+    boolean existsByBankAccountName(String name);
+
+    // Balance History operations
+    BalanceHistory saveBalanceHistory(BalanceHistory balanceHistory);
 }
