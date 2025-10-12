@@ -1,13 +1,9 @@
 package org.example.axelnyman.main.domain.services;
 
-import java.util.Optional;
-
 import org.example.axelnyman.main.domain.abstracts.IDataService;
 import org.example.axelnyman.main.domain.abstracts.IDomainService;
 import org.example.axelnyman.main.domain.dtos.BankAccountDtos.*;
-import org.example.axelnyman.main.domain.dtos.UserDtos.*;
 import org.example.axelnyman.main.domain.extensions.BankAccountExtensions;
-import org.example.axelnyman.main.domain.extensions.UserExtensions;
 import org.example.axelnyman.main.domain.model.BalanceHistory;
 import org.example.axelnyman.main.domain.model.BalanceHistorySource;
 import org.example.axelnyman.main.domain.model.BankAccount;
@@ -22,12 +18,6 @@ public class DomainService implements IDomainService {
 
     public DomainService(IDataService dataService) {
         this.dataService = dataService;
-    }
-
-    @Override
-    public Optional<UserResponse> getUserProfile(Long userId) {
-        return dataService.getUserById(userId)
-                .map(UserExtensions::toResponse);
     }
 
     @Override

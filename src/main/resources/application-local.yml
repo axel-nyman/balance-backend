@@ -25,14 +25,8 @@ spring:
   logging:
     level:
       org.springframework.web: DEBUG
-      org.springframework.security: DEBUG
       org.hibernate.SQL: DEBUG
       org.hibernate.type.descriptor.sql.BasicBinder: TRACE
-
-# JWT Configuration for local development
-jwt:
-  secret: ${JWT_SECRET:localDevelopmentSecretThatIsLongEnoughForHS256AlgorithmUsage}
-  expiration: ${JWT_EXPIRATION:86400000} # 24 hours in milliseconds
 
 # Server configuration
 server:

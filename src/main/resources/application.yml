@@ -16,8 +16,3 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         "[format_sql]": true
-
-# JWT Configuration
-jwt:
-  secret: ${JWT_SECRET:defaultSecretForDevelopmentOnlyThisShouldBeLongerThan32Characters}
-  expiration: ${JWT_EXPIRATION:86400000} # 24 hours in milliseconds
