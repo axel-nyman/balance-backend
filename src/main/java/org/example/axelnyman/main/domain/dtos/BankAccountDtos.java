@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 public class BankAccountDtos {
@@ -27,5 +28,11 @@ public class BankAccountDtos {
             String description,
             BigDecimal currentBalance,
             LocalDateTime createdAt
+    ) {}
+
+    public record BankAccountListResponse(
+            BigDecimal totalBalance,
+            int accountCount,
+            List<BankAccountResponse> accounts
     ) {}
 }

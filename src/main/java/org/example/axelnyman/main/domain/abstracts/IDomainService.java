@@ -12,4 +12,6 @@ public interface IDomainService {
 
     // Bank Account operations
     BankAccountResponse createBankAccount(CreateBankAccountRequest request);
+
+    BankAccountListResponse getAllBankAccounts();
 }

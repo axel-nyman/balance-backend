@@ -32,4 +32,13 @@ public class BankAccountController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(domainService.createBankAccount(request));
     }
+
+    @GetMapping
+    @Operation(summary = "Get all bank accounts", description = "Retrieve all active bank accounts with total balance and account count")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Bank accounts retrieved successfully")
+    })
+    public ResponseEntity<BankAccountListResponse> getAllBankAccounts() {
+        return ResponseEntity.ok(domainService.getAllBankAccounts());
+    }
 }

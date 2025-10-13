@@ -229,4 +229,107 @@ public class BankAccountIntegrationTest {
                 .andExpect(jsonPath("$.id").exists())
                 .andExpect(jsonPath("$.name", is("Public Account")));
     }
+
+    @Test
+    void shouldReturnAllActiveBankAccounts() throws Exception {
+        // Given - create multiple bank accounts
+        createBankAccount("Checking Account", "Primary checking", new BigDecimal("1000.00"));
+        createBankAccount("Savings Account", "Emergency fund", new BigDecimal("5000.00"));
+        createBankAccount("Investment Account", "Long term", new BigDecimal("10000.00"));
+
+        // When & Then
+        mockMvc.perform(get("/api/bank-accounts")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accounts", hasSize(3)))
+                .andExpect(jsonPath("$.accounts[*].name", containsInAnyOrder(
+                        "Checking Account", "Savings Account", "Investment Account")))
+                .andExpect(jsonPath("$.accounts[*].currentBalance", hasItem(1000.00)))
+                .andExpect(jsonPath("$.accounts[*].currentBalance", hasItem(5000.00)))
+                .andExpect(jsonPath("$.accounts[*].currentBalance", hasItem(10000.00)));
+    }
+
+    @Test
+    void shouldCalculateTotalBalanceAcrossAllAccounts() throws Exception {
+        // Given - create accounts with specific balances
+        createBankAccount("Account A", "Description A", new BigDecimal("1000.00"));
+        createBankAccount("Account B", "Description B", new BigDecimal("2500.50"));
+        createBankAccount("Account C", "Description C", new BigDecimal("3499.50"));
+
+        // When & Then - total should be 7000.00
+        mockMvc.perform(get("/api/bank-accounts")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalBalance", is(7000.00)))
+                .andExpect(jsonPath("$.accountCount", is(3)));
+    }
+
+    @Test
+    void shouldReturnCorrectAccountCount() throws Exception {
+        // Given - create 5 accounts
+        createBankAccount("Account 1", "Desc 1", new BigDecimal("100.00"));
+        createBankAccount("Account 2", "Desc 2", new BigDecimal("200.00"));
+        createBankAccount("Account 3", "Desc 3", new BigDecimal("300.00"));
+        createBankAccount("Account 4", "Desc 4", new BigDecimal("400.00"));
+        createBankAccount("Account 5", "Desc 5", new BigDecimal("500.00"));
+
+        // When & Then
+        mockMvc.perform(get("/api/bank-accounts")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accountCount", is(5)))
+                .andExpect(jsonPath("$.accounts", hasSize(5)))
+                .andExpect(jsonPath("$.totalBalance", is(1500.00)));
+    }
+
+    @Test
+    void shouldExcludeSoftDeletedAccounts() throws Exception {
+        // Given - create accounts and soft delete one
+        createBankAccount("Active Account 1", "Active", new BigDecimal("1000.00"));
+        createBankAccount("Active Account 2", "Active", new BigDecimal("2000.00"));
+        var deletedAccount = createBankAccountEntity("Deleted Account", "To be deleted", new BigDecimal("3000.00"));
+
+        // Soft delete the third account
+        deletedAccount.setDeletedAt(java.time.LocalDateTime.now());
+        bankAccountRepository.save(deletedAccount);
+
+        // When & Then - should only return 2 active accounts
+        mockMvc.perform(get("/api/bank-accounts")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accountCount", is(2)))
+                .andExpect(jsonPath("$.accounts", hasSize(2)))
+                .andExpect(jsonPath("$.totalBalance", is(3000.00)))
+                .andExpect(jsonPath("$.accounts[*].name", not(hasItem("Deleted Account"))));
+    }
+
+    @Test
+    void shouldReturnEmptyListWhenNoAccountsExist() throws Exception {
+        // Given - no accounts created (database is clean from setUp)
+
+        // When & Then
+        mockMvc.perform(get("/api/bank-accounts")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accountCount", is(0)))
+                .andExpect(jsonPath("$.accounts", hasSize(0)))
+                .andExpect(jsonPath("$.totalBalance", is(0)));
+    }
+
+    // Helper methods for test data creation
+    private void createBankAccount(String name, String description, BigDecimal initialBalance) throws Exception {
+        CreateBankAccountRequest request = new CreateBankAccountRequest(name, description, initialBalance);
+        mockMvc.perform(post("/api/bank-accounts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
+    }
+
+    private org.example.axelnyman.main.domain.model.BankAccount createBankAccountEntity(String name, String description, BigDecimal initialBalance) {
+        org.example.axelnyman.main.domain.model.BankAccount account = new org.example.axelnyman.main.domain.model.BankAccount();
+        account.setName(name);
+        account.setDescription(description);
+        account.setCurrentBalance(initialBalance);
+        return bankAccountRepository.save(account);
+    }
 }

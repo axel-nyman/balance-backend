@@ -30,6 +30,11 @@ public class DataService implements IDataService {
     }
 
     @Override
+    public java.util.List<BankAccount> getAllActiveBankAccounts() {
+        return bankAccountRepository.findAllByDeletedAtIsNull();
+    }
+
+    @Override
     public BalanceHistory saveBalanceHistory(BalanceHistory balanceHistory) {
         return balanceHistoryRepository.save(balanceHistory);
     }

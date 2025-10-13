@@ -3,6 +3,8 @@ package org.example.axelnyman.main.domain.abstracts;
 import org.example.axelnyman.main.domain.model.BalanceHistory;
 import org.example.axelnyman.main.domain.model.BankAccount;
 
+import java.util.List;
+
 /**
  * Data Access Service - Responsible for direct database operations
  * This service provides a clean abstraction over repository operations
@@ -13,6 +15,8 @@ public interface IDataService {
     BankAccount saveBankAccount(BankAccount bankAccount);
 
     boolean existsByBankAccountName(String name);
+
+    List<BankAccount> getAllActiveBankAccounts();
 
     // Balance History operations
     BalanceHistory saveBalanceHistory(BalanceHistory balanceHistory);

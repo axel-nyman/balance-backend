@@ -11,6 +11,10 @@ import org.example.axelnyman.main.shared.exceptions.DuplicateBankAccountNameExce
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.util.Comparator;
+import java.util.List;
+
 @Service
 public class DomainService implements IDomainService {
 
@@ -39,5 +43,21 @@ public class DomainService implements IDomainService {
         ));
 
         return BankAccountExtensions.toResponse(savedAccount);
+    }
+
+    @Override
+    public BankAccountListResponse getAllBankAccounts() {
+        List<BankAccount> accounts = dataService.getAllActiveBankAccounts();
+
+        BigDecimal totalBalance = accounts.stream()
+                .map(BankAccount::getCurrentBalance)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        List<BankAccountResponse> accountResponses = accounts.stream()
+                .sorted(Comparator.comparing(BankAccount::getName))
+                .map(BankAccountExtensions::toResponse)
+                .toList();
+
+        return new BankAccountListResponse(totalBalance, accounts.size(), accountResponses);
     }
 }
