@@ -18,6 +18,8 @@ public interface IDataService {
 
     boolean existsByBankAccountName(String name);
 
+    boolean existsByNameExcludingId(String name, UUID excludeId);
+
     List<BankAccount> getAllActiveBankAccounts();
 
     Optional<BankAccount> getBankAccountById(UUID id);

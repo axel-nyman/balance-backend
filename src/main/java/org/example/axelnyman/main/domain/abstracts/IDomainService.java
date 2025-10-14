@@ -17,5 +17,7 @@ public interface IDomainService {
 
     BankAccountListResponse getAllBankAccounts();
 
+    BankAccountResponse updateBankAccountDetails(UUID id, UpdateBankAccountRequest request);
+
     BalanceUpdateResponse updateBankAccountBalance(UUID id, UpdateBalanceRequest request);
 }

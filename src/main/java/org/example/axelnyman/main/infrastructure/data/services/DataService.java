@@ -30,6 +30,11 @@ public class DataService implements IDataService {
     }
 
     @Override
+    public boolean existsByNameExcludingId(String name, java.util.UUID excludeId) {
+        return bankAccountRepository.existsByNameAndIdNotAndDeletedAtIsNull(name, excludeId);
+    }
+
+    @Override
     public java.util.List<BankAccount> getAllActiveBankAccounts() {
         return bankAccountRepository.findAllByDeletedAtIsNull();
     }

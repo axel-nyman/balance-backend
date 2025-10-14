@@ -15,5 +15,8 @@ public interface BankAccountRepository extends JpaRepository<BankAccount, UUID> 
     @Query("SELECT CASE WHEN COUNT(ba) > 0 THEN true ELSE false END FROM BankAccount ba WHERE ba.name = :name AND ba.deletedAt IS NULL")
     boolean existsByNameAndDeletedAtIsNull(@Param("name") String name);
 
+    @Query("SELECT CASE WHEN COUNT(ba) > 0 THEN true ELSE false END FROM BankAccount ba WHERE ba.name = :name AND ba.id != :excludeId AND ba.deletedAt IS NULL")
+    boolean existsByNameAndIdNotAndDeletedAtIsNull(@Param("name") String name, @Param("excludeId") UUID excludeId);
+
     List<BankAccount> findAllByDeletedAtIsNull();
 }

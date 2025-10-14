@@ -17,7 +17,8 @@ public final class BankAccountExtensions {
                 bankAccount.getName(),
                 bankAccount.getDescription(),
                 bankAccount.getCurrentBalance(),
-                bankAccount.getCreatedAt()
+                bankAccount.getCreatedAt(),
+                bankAccount.getUpdatedAt()
         );
     }
 

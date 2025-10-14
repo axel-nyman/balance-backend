@@ -67,6 +67,35 @@ public class DomainService implements IDomainService {
 
     @Override
     @Transactional
+    public BankAccountResponse updateBankAccountDetails(UUID id, UpdateBankAccountRequest request) {
+        // Get bank account by ID
+        BankAccount account = dataService.getBankAccountById(id)
+                .orElseThrow(() -> new BankAccountNotFoundException("Bank account not found with id: " + id));
+
+        // Check if account is soft-deleted
+        if (account.getDeletedAt() != null) {
+            throw new BankAccountNotFoundException("Cannot update deleted bank account");
+        }
+
+        // If name is changing, check uniqueness (excluding current account)
+        if (!account.getName().equals(request.name())) {
+            if (dataService.existsByNameExcludingId(request.name(), id)) {
+                throw new DuplicateBankAccountNameException("Bank account name already exists");
+            }
+        }
+
+        // Update fields (balance is NOT updated)
+        account.setName(request.name());
+        account.setDescription(request.description());
+
+        // Save (updatedAt auto-updated by JPA auditing)
+        BankAccount updatedAccount = dataService.saveBankAccount(account);
+
+        return BankAccountExtensions.toResponse(updatedAccount);
+    }
+
+    @Override
+    @Transactional
     public BalanceUpdateResponse updateBankAccountBalance(UUID id, UpdateBalanceRequest request) {
         // Validate date is not in the future
         if (request.date().isAfter(LocalDateTime.now())) {

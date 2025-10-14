@@ -44,6 +44,19 @@ public class BankAccountController {
         return ResponseEntity.ok(domainService.getAllBankAccounts());
     }
 
+    @PutMapping("/{id}")
+    @Operation(summary = "Update bank account details", description = "Update name and description of a bank account")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Account updated successfully"),
+            @ApiResponse(responseCode = "400", description = "Duplicate name or validation error"),
+            @ApiResponse(responseCode = "404", description = "Bank account not found")
+    })
+    public ResponseEntity<BankAccountResponse> updateBankAccountDetails(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateBankAccountRequest request) {
+        return ResponseEntity.ok(domainService.updateBankAccountDetails(id, request));
+    }
+
     @PostMapping("/{id}/balance")
     @Operation(summary = "Update bank account balance", description = "Manually update the balance of a bank account with date and optional comment")
     @ApiResponses(value = {

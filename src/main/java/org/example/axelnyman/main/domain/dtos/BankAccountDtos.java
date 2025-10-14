@@ -28,7 +28,8 @@ public class BankAccountDtos {
             String name,
             String description,
             BigDecimal currentBalance,
-            LocalDateTime createdAt
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt
     ) {}
 
     public record BankAccountListResponse(
@@ -55,5 +56,14 @@ public class BankAccountDtos {
             BigDecimal previousBalance,
             BigDecimal changeAmount,
             LocalDateTime lastUpdated
+    ) {}
+
+    public record UpdateBankAccountRequest(
+            @NotBlank(message = "Name is required")
+            @Size(max = 255, message = "Name must be less than 255 characters")
+            String name,
+
+            @Size(max = 500, message = "Description must be less than 500 characters")
+            String description
     ) {}
 }
