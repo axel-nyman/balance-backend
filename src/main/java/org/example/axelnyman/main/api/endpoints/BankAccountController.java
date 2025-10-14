@@ -69,4 +69,16 @@ public class BankAccountController {
             @Valid @RequestBody UpdateBalanceRequest request) {
         return ResponseEntity.ok(domainService.updateBankAccountBalance(id, request));
     }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete bank account", description = "Soft delete a bank account by setting deletedAt timestamp")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Bank account deleted successfully"),
+            @ApiResponse(responseCode = "400", description = "Cannot delete account used in unlocked budget"),
+            @ApiResponse(responseCode = "404", description = "Bank account not found")
+    })
+    public ResponseEntity<Void> deleteBankAccount(@PathVariable UUID id) {
+        domainService.deleteBankAccount(id);
+        return ResponseEntity.noContent().build();
+    }
 }

@@ -20,4 +20,6 @@ public interface IDomainService {
     BankAccountResponse updateBankAccountDetails(UUID id, UpdateBankAccountRequest request);
 
     BalanceUpdateResponse updateBankAccountBalance(UUID id, UpdateBalanceRequest request);
+
+    void deleteBankAccount(UUID id);
 }

@@ -24,6 +24,10 @@ public interface IDataService {
 
     Optional<BankAccount> getBankAccountById(UUID id);
 
+    boolean isAccountLinkedToUnlockedBudget(UUID accountId);
+
+    void deleteBankAccount(UUID accountId);
+
     // Balance History operations
     BalanceHistory saveBalanceHistory(BalanceHistory balanceHistory);
 }

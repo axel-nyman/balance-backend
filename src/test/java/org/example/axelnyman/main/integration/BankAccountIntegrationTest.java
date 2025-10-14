@@ -796,6 +796,162 @@ public class BankAccountIntegrationTest {
                                 : "Balance should remain unchanged";
         }
 
+        @Test
+        void shouldDeleteBankAccountSuccessfully() throws Exception {
+                // Given - create an account
+                var account = createBankAccountEntity("Account to Delete", "Will be deleted", new BigDecimal("1000.00"));
+
+                // When - delete the account
+                mockMvc.perform(delete("/api/bank-accounts/" + account.getId()))
+                                .andExpect(status().isNoContent());
+        }
+
+        @Test
+        void shouldSetDeletedAtTimestampWhenDeleted() throws Exception {
+                // Given - create an account
+                var account = createBankAccountEntity("Test Account", "For deletion", new BigDecimal("500.00"));
+                assert account.getDeletedAt() == null : "DeletedAt should be null initially";
+
+                // When - delete the account via API
+                mockMvc.perform(delete("/api/bank-accounts/" + account.getId()))
+                                .andExpect(status().isNoContent());
+
+                // Then - verify deletedAt is set in database
+                var deletedAccount = bankAccountRepository.findById(account.getId()).orElseThrow();
+                assert deletedAccount.getDeletedAt() != null : "DeletedAt should be set after deletion";
+        }
+
+        @Test
+        void shouldExcludeDeletedAccountsFromGetAll() throws Exception {
+                // Given - create 3 accounts and delete 1
+                createBankAccount("Active Account 1", "Still active", new BigDecimal("1000.00"));
+                createBankAccount("Active Account 2", "Still active", new BigDecimal("2000.00"));
+                var accountToDelete = createBankAccountEntity("Deleted Account", "Will be deleted", new BigDecimal("3000.00"));
+
+                // Delete the third account
+                mockMvc.perform(delete("/api/bank-accounts/" + accountToDelete.getId()))
+                                .andExpect(status().isNoContent());
+
+                // When & Then - GET all should return only 2 active accounts
+                mockMvc.perform(get("/api/bank-accounts")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.accountCount", is(2)))
+                                .andExpect(jsonPath("$.accounts", hasSize(2)))
+                                .andExpect(jsonPath("$.totalBalance", is(3000.00)))
+                                .andExpect(jsonPath("$.accounts[*].name", not(hasItem("Deleted Account"))));
+        }
+
+        @Test
+        void shouldPreserveBalanceHistoryAfterDeletion() throws Exception {
+                // Given - create account with balance history via API (creates initial history entry)
+                CreateBankAccountRequest createRequest = new CreateBankAccountRequest(
+                                "Account with History",
+                                "Has history",
+                                new BigDecimal("1000.00"));
+
+                String createResponse = mockMvc.perform(post("/api/bank-accounts")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(createRequest)))
+                                .andExpect(status().isCreated())
+                                .andReturn().getResponse().getContentAsString();
+
+                UUID accountId = UUID.fromString(
+                                objectMapper.readTree(createResponse).get("id").asText());
+
+                // Create additional balance history entry
+                var updateRequest = new java.util.HashMap<String, Object>();
+                updateRequest.put("newBalance", new BigDecimal("1500.00"));
+                updateRequest.put("date", java.time.LocalDateTime.now().toString());
+                updateRequest.put("comment", "Balance update");
+
+                mockMvc.perform(post("/api/bank-accounts/" + accountId + "/balance")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isOk());
+
+                // Count balance history entries before deletion
+                long historyCountBefore = balanceHistoryRepository.count();
+                assert historyCountBefore >= 2 : "Should have at least 2 balance history entries";
+
+                // When - delete the account
+                mockMvc.perform(delete("/api/bank-accounts/" + accountId))
+                                .andExpect(status().isNoContent());
+
+                // Then - verify balance history is still preserved
+                long historyCountAfter = balanceHistoryRepository.count();
+                assert historyCountAfter == historyCountBefore : "Balance history should be preserved after deletion";
+        }
+
+        @Test
+        void shouldReturn404WhenDeletingNonExistentAccount() throws Exception {
+                // Given - non-existent account ID
+                UUID nonExistentId = UUID.randomUUID();
+
+                // When & Then - should return 404
+                mockMvc.perform(delete("/api/bank-accounts/" + nonExistentId))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.error").exists());
+        }
+
+        @Test
+        void shouldReturn404WhenDeletingAlreadyDeletedAccount() throws Exception {
+                // Given - create and delete an account
+                var account = createBankAccountEntity("Account to Delete Twice", "First deletion", new BigDecimal("1000.00"));
+
+                // Delete once
+                mockMvc.perform(delete("/api/bank-accounts/" + account.getId()))
+                                .andExpect(status().isNoContent());
+
+                // When & Then - try to delete again, should return 404
+                mockMvc.perform(delete("/api/bank-accounts/" + account.getId()))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.error").exists());
+        }
+
+        @Test
+        void shouldNotAllowUpdatingDeletedAccountDetails() throws Exception {
+                // Given - create and delete an account
+                var account = createBankAccountEntity("Deleted Account", "Already deleted", new BigDecimal("1000.00"));
+
+                mockMvc.perform(delete("/api/bank-accounts/" + account.getId()))
+                                .andExpect(status().isNoContent());
+
+                // When - try to update the deleted account
+                var updateRequest = new java.util.HashMap<String, String>();
+                updateRequest.put("name", "New Name");
+                updateRequest.put("description", "New Description");
+
+                // Then - should return 404
+                mockMvc.perform(put("/api/bank-accounts/" + account.getId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.error").exists());
+        }
+
+        @Test
+        void shouldNotAllowUpdatingDeletedAccountBalance() throws Exception {
+                // Given - create and delete an account
+                var account = createBankAccountEntity("Deleted Account", "Already deleted", new BigDecimal("1000.00"));
+
+                mockMvc.perform(delete("/api/bank-accounts/" + account.getId()))
+                                .andExpect(status().isNoContent());
+
+                // When - try to update the balance of deleted account
+                var updateRequest = new java.util.HashMap<String, Object>();
+                updateRequest.put("newBalance", new BigDecimal("2000.00"));
+                updateRequest.put("date", java.time.LocalDateTime.now().toString());
+                updateRequest.put("comment", "Should fail");
+
+                // Then - should return 404
+                mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.error").exists());
+        }
+
         // Helper methods for test data creation
         private void createBankAccount(String name, String description, BigDecimal initialBalance) throws Exception {
                 CreateBankAccountRequest request = new CreateBankAccountRequest(name, description, initialBalance);

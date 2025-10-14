@@ -7,6 +7,8 @@ import org.example.axelnyman.main.infrastructure.data.context.BalanceHistoryRepo
 import org.example.axelnyman.main.infrastructure.data.context.BankAccountRepository;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+
 @Service
 public class DataService implements IDataService {
 
@@ -42,6 +44,21 @@ public class DataService implements IDataService {
     @Override
     public java.util.Optional<BankAccount> getBankAccountById(java.util.UUID id) {
         return bankAccountRepository.findById(id);
+    }
+
+    @Override
+    public boolean isAccountLinkedToUnlockedBudget(java.util.UUID accountId) {
+        // TODO: Update this method when Budget entity is created in Sprint 2
+        // For now, return false since budgets don't exist yet
+        return false;
+    }
+
+    @Override
+    public void deleteBankAccount(java.util.UUID accountId) {
+        BankAccount account = bankAccountRepository.findById(accountId)
+                .orElseThrow(() -> new RuntimeException("Account not found"));
+        account.setDeletedAt(LocalDateTime.now());
+        bankAccountRepository.save(account);
     }
 
     @Override

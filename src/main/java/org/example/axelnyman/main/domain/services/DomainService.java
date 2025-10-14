@@ -7,6 +7,7 @@ import org.example.axelnyman.main.domain.extensions.BankAccountExtensions;
 import org.example.axelnyman.main.domain.model.BalanceHistory;
 import org.example.axelnyman.main.domain.model.BalanceHistorySource;
 import org.example.axelnyman.main.domain.model.BankAccount;
+import org.example.axelnyman.main.shared.exceptions.AccountLinkedToBudgetException;
 import org.example.axelnyman.main.shared.exceptions.BankAccountNotFoundException;
 import org.example.axelnyman.main.shared.exceptions.DuplicateBankAccountNameException;
 import org.example.axelnyman.main.shared.exceptions.FutureDateException;
@@ -106,6 +107,11 @@ public class DomainService implements IDomainService {
         BankAccount account = dataService.getBankAccountById(id)
                 .orElseThrow(() -> new BankAccountNotFoundException("Bank account not found with id: " + id));
 
+        // Check if account is soft-deleted
+        if (account.getDeletedAt() != null) {
+            throw new BankAccountNotFoundException("Cannot update balance of deleted bank account");
+        }
+
         // Store previous balance
         BigDecimal previousBalance = account.getCurrentBalance();
 
@@ -142,5 +148,26 @@ public class DomainService implements IDomainService {
                 changeAmount,
                 request.date()
         );
+    }
+
+    @Override
+    @Transactional
+    public void deleteBankAccount(UUID id) {
+        // Check if account exists and is not already deleted
+        BankAccount account = dataService.getBankAccountById(id)
+                .orElseThrow(() -> new BankAccountNotFoundException("Bank account not found with id: " + id));
+
+        // Check if account is already soft-deleted
+        if (account.getDeletedAt() != null) {
+            throw new BankAccountNotFoundException("Bank account not found with id: " + id);
+        }
+
+        // Check if account is linked to an unlocked budget
+        if (dataService.isAccountLinkedToUnlockedBudget(id)) {
+            throw new AccountLinkedToBudgetException("Cannot delete account used in unlocked budget");
+        }
+
+        // Perform soft delete
+        dataService.deleteBankAccount(id);
     }
 }
