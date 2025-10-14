@@ -22,6 +22,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -314,6 +315,268 @@ public class BankAccountIntegrationTest {
                 .andExpect(jsonPath("$.accountCount", is(0)))
                 .andExpect(jsonPath("$.accounts", hasSize(0)))
                 .andExpect(jsonPath("$.totalBalance", is(0)));
+    }
+
+    @Test
+    void shouldUpdateBalanceSuccessfullyWithPositiveChange() throws Exception {
+        // Given - create account with initial balance
+        var account = createBankAccountEntity("Test Account", "For testing", new BigDecimal("1000.00"));
+        var updateRequest = new java.util.HashMap<String, Object>();
+        updateRequest.put("newBalance", new BigDecimal("1500.00"));
+        updateRequest.put("date", java.time.LocalDateTime.now().minusDays(1).toString());
+        updateRequest.put("comment", "Salary deposit");
+
+        // When & Then
+        mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id", is(account.getId().toString())))
+                .andExpect(jsonPath("$.currentBalance", is(1500.00)))
+                .andExpect(jsonPath("$.previousBalance", is(1000.00)))
+                .andExpect(jsonPath("$.changeAmount", is(500.00)))
+                .andExpect(jsonPath("$.lastUpdated").exists());
+    }
+
+    @Test
+    void shouldUpdateBalanceSuccessfullyWithNegativeChange() throws Exception {
+        // Given - create account with balance
+        var account = createBankAccountEntity("Test Account", "For testing", new BigDecimal("1000.00"));
+        var updateRequest = new java.util.HashMap<String, Object>();
+        updateRequest.put("newBalance", new BigDecimal("500.00"));
+        updateRequest.put("date", java.time.LocalDateTime.now().toString());
+        updateRequest.put("comment", "Withdrawal");
+
+        // When & Then
+        mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentBalance", is(500.00)))
+                .andExpect(jsonPath("$.previousBalance", is(1000.00)))
+                .andExpect(jsonPath("$.changeAmount", is(-500.00)));
+    }
+
+    @Test
+    void shouldUpdateBalanceToZero() throws Exception {
+        // Given - account with positive balance
+        var account = createBankAccountEntity("Test Account", "For testing", new BigDecimal("250.00"));
+        var updateRequest = new java.util.HashMap<String, Object>();
+        updateRequest.put("newBalance", new BigDecimal("0.00"));
+        updateRequest.put("date", java.time.LocalDateTime.now().toString());
+        updateRequest.put("comment", "Account emptied");
+
+        // When & Then
+        mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentBalance", is(0.00)))
+                .andExpect(jsonPath("$.changeAmount", is(-250.00)));
+    }
+
+    @Test
+    void shouldUpdateBalanceFromZero() throws Exception {
+        // Given - account with zero balance
+        var account = createBankAccountEntity("Empty Account", "Starting from zero", BigDecimal.ZERO);
+        var updateRequest = new java.util.HashMap<String, Object>();
+        updateRequest.put("newBalance", new BigDecimal("1000.00"));
+        updateRequest.put("date", java.time.LocalDateTime.now().toString());
+        updateRequest.put("comment", "Initial deposit");
+
+        // When & Then
+        mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentBalance", is(1000.00)))
+                .andExpect(jsonPath("$.previousBalance", is(0.00)))
+                .andExpect(jsonPath("$.changeAmount", is(1000.00)));
+    }
+
+    @Test
+    void shouldAllowNegativeBalance() throws Exception {
+        // Given - account with small balance
+        var account = createBankAccountEntity("Test Account", "For testing", new BigDecimal("100.00"));
+        var updateRequest = new java.util.HashMap<String, Object>();
+        updateRequest.put("newBalance", new BigDecimal("-50.00"));
+        updateRequest.put("date", java.time.LocalDateTime.now().toString());
+        updateRequest.put("comment", "Overdraft");
+
+        // When & Then - should allow negative balance
+        mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentBalance", is(-50.00)))
+                .andExpect(jsonPath("$.changeAmount", is(-150.00)));
+    }
+
+    @Test
+    void shouldCreateBalanceHistoryEntryWithManualSource() throws Exception {
+        // Given - account to update
+        var account = createBankAccountEntity("Test Account", "For testing", new BigDecimal("1000.00"));
+        long historyCountBefore = balanceHistoryRepository.count();
+
+        var updateRequest = new java.util.HashMap<String, Object>();
+        updateRequest.put("newBalance", new BigDecimal("1200.00"));
+        updateRequest.put("date", java.time.LocalDateTime.now().toString());
+        updateRequest.put("comment", "Manual adjustment");
+
+        // When
+        mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk());
+
+        // Then - verify balance history entry created
+        long historyCountAfter = balanceHistoryRepository.count();
+        assert historyCountAfter == historyCountBefore + 1 : "Balance history entry should be created";
+
+        // Verify it has MANUAL source
+        var historyEntries = balanceHistoryRepository.findAll();
+        var latestEntry = historyEntries.get(historyEntries.size() - 1);
+        assert latestEntry.getSource().toString().equals("MANUAL") : "Source should be MANUAL";
+        assert latestEntry.getBudgetId() == null : "BudgetId should be null";
+    }
+
+    @Test
+    void shouldCalculateChangeAmountCorrectly() throws Exception {
+        // Given - account with specific balance
+        var account = createBankAccountEntity("Test Account", "For testing", new BigDecimal("1234.56"));
+        var updateRequest = new java.util.HashMap<String, Object>();
+        updateRequest.put("newBalance", new BigDecimal("2345.67"));
+        updateRequest.put("date", java.time.LocalDateTime.now().toString());
+        updateRequest.put("comment", "Test calculation");
+
+        // When & Then - change should be 2345.67 - 1234.56 = 1111.11
+        mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.changeAmount", is(1111.11)));
+    }
+
+    @Test
+    void shouldStoreCommentWhenProvided() throws Exception {
+        // Given - update request with comment
+        var account = createBankAccountEntity("Test Account", "For testing", new BigDecimal("1000.00"));
+        var updateRequest = new java.util.HashMap<String, Object>();
+        updateRequest.put("newBalance", new BigDecimal("1100.00"));
+        updateRequest.put("date", java.time.LocalDateTime.now().toString());
+        updateRequest.put("comment", "This is a test comment");
+
+        // When
+        mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk());
+
+        // Then - verify comment is stored in history
+        var historyEntries = balanceHistoryRepository.findAll();
+        var latestEntry = historyEntries.get(historyEntries.size() - 1);
+        assert latestEntry.getComment().equals("This is a test comment") : "Comment should be stored";
+    }
+
+    @Test
+    void shouldHandleNullComment() throws Exception {
+        // Given - update request without comment
+        var account = createBankAccountEntity("Test Account", "For testing", new BigDecimal("1000.00"));
+        var updateRequest = new java.util.HashMap<String, Object>();
+        updateRequest.put("newBalance", new BigDecimal("1100.00"));
+        updateRequest.put("date", java.time.LocalDateTime.now().toString());
+        updateRequest.put("comment", null);
+
+        // When & Then - should accept null comment
+        mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void shouldRejectFutureDate() throws Exception {
+        // Given - update request with future date
+        var account = createBankAccountEntity("Test Account", "For testing", new BigDecimal("1000.00"));
+        var updateRequest = new java.util.HashMap<String, Object>();
+        updateRequest.put("newBalance", new BigDecimal("1500.00"));
+        updateRequest.put("date", java.time.LocalDateTime.now().plusDays(1).toString());
+        updateRequest.put("comment", "Future date test");
+
+        // When & Then - should reject with 403 Forbidden
+        mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error", is("Date cannot be in the future")));
+    }
+
+    @Test
+    void shouldAcceptCurrentDate() throws Exception {
+        // Given - update request with current date
+        var account = createBankAccountEntity("Test Account", "For testing", new BigDecimal("1000.00"));
+        var updateRequest = new java.util.HashMap<String, Object>();
+        updateRequest.put("newBalance", new BigDecimal("1200.00"));
+        updateRequest.put("date", java.time.LocalDateTime.now().toString());
+        updateRequest.put("comment", "Current date test");
+
+        // When & Then - should accept current date
+        mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void shouldAcceptPastDate() throws Exception {
+        // Given - update request with past date
+        var account = createBankAccountEntity("Test Account", "For testing", new BigDecimal("1000.00"));
+        var updateRequest = new java.util.HashMap<String, Object>();
+        updateRequest.put("newBalance", new BigDecimal("900.00"));
+        updateRequest.put("date", java.time.LocalDateTime.now().minusYears(1).toString());
+        updateRequest.put("comment", "Historical adjustment");
+
+        // When & Then - should accept past date
+        mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void shouldReturn404WhenBankAccountNotFound() throws Exception {
+        // Given - non-existent account ID
+        UUID nonExistentId = UUID.randomUUID();
+        var updateRequest = new java.util.HashMap<String, Object>();
+        updateRequest.put("newBalance", new BigDecimal("1000.00"));
+        updateRequest.put("date", java.time.LocalDateTime.now().toString());
+        updateRequest.put("comment", "Test");
+
+        // When & Then - should return 404
+        mockMvc.perform(post("/api/bank-accounts/" + nonExistentId + "/balance")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    void shouldHandleDecimalPrecision() throws Exception {
+        // Given - account with precise decimal balance
+        var account = createBankAccountEntity("Test Account", "For testing", new BigDecimal("1000.99"));
+        var updateRequest = new java.util.HashMap<String, Object>();
+        updateRequest.put("newBalance", new BigDecimal("2500.49"));
+        updateRequest.put("date", java.time.LocalDateTime.now().toString());
+        updateRequest.put("comment", "Precision test");
+
+        // When & Then - should handle decimal precision correctly
+        mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentBalance", is(2500.49)))
+                .andExpect(jsonPath("$.previousBalance", is(1000.99)))
+                .andExpect(jsonPath("$.changeAmount", is(1499.50)));
     }
 
     // Helper methods for test data creation

@@ -4,6 +4,8 @@ import org.example.axelnyman.main.domain.model.BalanceHistory;
 import org.example.axelnyman.main.domain.model.BankAccount;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Data Access Service - Responsible for direct database operations
@@ -17,6 +19,8 @@ public interface IDataService {
     boolean existsByBankAccountName(String name);
 
     List<BankAccount> getAllActiveBankAccounts();
+
+    Optional<BankAccount> getBankAccountById(UUID id);
 
     // Balance History operations
     BalanceHistory saveBalanceHistory(BalanceHistory balanceHistory);

@@ -11,6 +11,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/bank-accounts")
 @Tag(name = "Bank Accounts", description = "Bank account management endpoints")
@@ -40,5 +42,18 @@ public class BankAccountController {
     })
     public ResponseEntity<BankAccountListResponse> getAllBankAccounts() {
         return ResponseEntity.ok(domainService.getAllBankAccounts());
+    }
+
+    @PostMapping("/{id}/balance")
+    @Operation(summary = "Update bank account balance", description = "Manually update the balance of a bank account with date and optional comment")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Balance updated successfully"),
+            @ApiResponse(responseCode = "403", description = "Date cannot be in the future"),
+            @ApiResponse(responseCode = "404", description = "Bank account not found")
+    })
+    public ResponseEntity<BalanceUpdateResponse> updateBankAccountBalance(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateBalanceRequest request) {
+        return ResponseEntity.ok(domainService.updateBankAccountBalance(id, request));
     }
 }

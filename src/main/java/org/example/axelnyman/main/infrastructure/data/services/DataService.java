@@ -35,6 +35,11 @@ public class DataService implements IDataService {
     }
 
     @Override
+    public java.util.Optional<BankAccount> getBankAccountById(java.util.UUID id) {
+        return bankAccountRepository.findById(id);
+    }
+
+    @Override
     public BalanceHistory saveBalanceHistory(BalanceHistory balanceHistory) {
         return balanceHistoryRepository.save(balanceHistory);
     }

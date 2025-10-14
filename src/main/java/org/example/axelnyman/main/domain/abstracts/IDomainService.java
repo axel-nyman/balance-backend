@@ -2,6 +2,8 @@ package org.example.axelnyman.main.domain.abstracts;
 
 import org.example.axelnyman.main.domain.dtos.BankAccountDtos.*;
 
+import java.util.UUID;
+
 /**
  * Domain Service - Responsible for general business operations
  * This service handles CRUD operations, data transformations, and business
@@ -14,4 +16,6 @@ public interface IDomainService {
     BankAccountResponse createBankAccount(CreateBankAccountRequest request);
 
     BankAccountListResponse getAllBankAccounts();
+
+    BalanceUpdateResponse updateBankAccountBalance(UUID id, UpdateBalanceRequest request);
 }

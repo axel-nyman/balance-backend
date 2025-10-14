@@ -1,6 +1,7 @@
 package org.example.axelnyman.main.domain.dtos;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
@@ -34,5 +35,25 @@ public class BankAccountDtos {
             BigDecimal totalBalance,
             int accountCount,
             List<BankAccountResponse> accounts
+    ) {}
+
+    public record UpdateBalanceRequest(
+            @NotNull(message = "New balance is required")
+            BigDecimal newBalance,
+
+            @NotNull(message = "Date is required")
+            LocalDateTime date,
+
+            @Size(max = 500, message = "Comment must be less than 500 characters")
+            String comment
+    ) {}
+
+    public record BalanceUpdateResponse(
+            UUID id,
+            String name,
+            BigDecimal currentBalance,
+            BigDecimal previousBalance,
+            BigDecimal changeAmount,
+            LocalDateTime lastUpdated
     ) {}
 }
