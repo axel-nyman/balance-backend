@@ -22,7 +22,9 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -326,11 +328,271 @@ public class BudgetIntegrationTest {
                 .andExpect(jsonPath("$.lockedAt").doesNotExist());
     }
 
+    // ============================================
+    // List Budgets Tests (Story 11)
+    // ============================================
+
+    @Test
+    void shouldReturnEmptyListWhenNoBudgetsExist() throws Exception {
+        // Given - no budgets in database
+
+        // When & Then
+        mockMvc.perform(get("/api/budgets"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.budgets").isArray())
+                .andExpect(jsonPath("$.budgets", hasSize(0)));
+    }
+
+    @Test
+    void shouldReturnSingleBudget() throws Exception {
+        // Given
+        Map<String, Object> request = createBudgetRequest(6, 2024);
+        mockMvc.perform(post("/api/budgets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
+
+        // When & Then
+        mockMvc.perform(get("/api/budgets"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.budgets").isArray())
+                .andExpect(jsonPath("$.budgets", hasSize(1)))
+                .andExpect(jsonPath("$.budgets[0].month", is(6)))
+                .andExpect(jsonPath("$.budgets[0].year", is(2024)))
+                .andExpect(jsonPath("$.budgets[0].status", is("UNLOCKED")));
+    }
+
+    @Test
+    void shouldReturnMultipleBudgets() throws Exception {
+        // Given - create 3 budgets (manually set status to LOCKED for first 2)
+        createBudget(6, 2024);
+        var budget1 = budgetRepository.findAll().get(0);
+        budget1.setStatus(org.example.axelnyman.main.domain.model.BudgetStatus.LOCKED);
+        budgetRepository.save(budget1);
+
+        createBudget(7, 2024);
+        var budget2 = budgetRepository.findAll().stream()
+                .filter(b -> b.getMonth() == 7).findFirst().get();
+        budget2.setStatus(org.example.axelnyman.main.domain.model.BudgetStatus.LOCKED);
+        budgetRepository.save(budget2);
+
+        createBudget(8, 2024);
+
+        // When & Then
+        mockMvc.perform(get("/api/budgets"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.budgets").isArray())
+                .andExpect(jsonPath("$.budgets", hasSize(3)));
+    }
+
+    @Test
+    void shouldIncludeAllBudgetFields() throws Exception {
+        // Given
+        createBudget(6, 2024);
+
+        // When & Then
+        mockMvc.perform(get("/api/budgets"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.budgets[0].id").exists())
+                .andExpect(jsonPath("$.budgets[0].month").exists())
+                .andExpect(jsonPath("$.budgets[0].year").exists())
+                .andExpect(jsonPath("$.budgets[0].status").exists())
+                .andExpect(jsonPath("$.budgets[0].createdAt").exists())
+                .andExpect(jsonPath("$.budgets[0].totals").exists())
+                .andExpect(jsonPath("$.budgets[0].totals.income").exists())
+                .andExpect(jsonPath("$.budgets[0].totals.expenses").exists())
+                .andExpect(jsonPath("$.budgets[0].totals.savings").exists())
+                .andExpect(jsonPath("$.budgets[0].totals.balance").exists());
+    }
+
+    @Test
+    void shouldReturnZeroTotalsForBudgetsWithoutItems() throws Exception {
+        // Given - budget without income/expenses/savings
+        createBudget(6, 2024);
+
+        // When & Then
+        mockMvc.perform(get("/api/budgets"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.budgets[0].totals.income", is(0)))
+                .andExpect(jsonPath("$.budgets[0].totals.expenses", is(0)))
+                .andExpect(jsonPath("$.budgets[0].totals.savings", is(0)))
+                .andExpect(jsonPath("$.budgets[0].totals.balance", is(0)));
+    }
+
+    @Test
+    void shouldSortBudgetsByYearDescending() throws Exception {
+        // Given - budgets from different years (manually set to LOCKED for 2nd and 3rd)
+        createBudget(6, 2022);
+        var budget2022 = budgetRepository.findAll().get(0);
+        budget2022.setStatus(org.example.axelnyman.main.domain.model.BudgetStatus.LOCKED);
+        budgetRepository.save(budget2022);
+
+        createBudget(6, 2023);
+        var budget2023 = budgetRepository.findAll().stream()
+                .filter(b -> b.getYear() == 2023).findFirst().get();
+        budget2023.setStatus(org.example.axelnyman.main.domain.model.BudgetStatus.LOCKED);
+        budgetRepository.save(budget2023);
+
+        createBudget(6, 2024);
+
+        // When & Then - newest year first
+        mockMvc.perform(get("/api/budgets"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.budgets", hasSize(3)))
+                .andExpect(jsonPath("$.budgets[0].year", is(2024)))
+                .andExpect(jsonPath("$.budgets[1].year", is(2023)))
+                .andExpect(jsonPath("$.budgets[2].year", is(2022)));
+    }
+
+    @Test
+    void shouldSortBudgetsByMonthDescendingWithinSameYear() throws Exception {
+        // Given - multiple months in same year
+        createBudget(1, 2024);
+        var budgetJan = budgetRepository.findAll().get(0);
+        budgetJan.setStatus(org.example.axelnyman.main.domain.model.BudgetStatus.LOCKED);
+        budgetRepository.save(budgetJan);
+
+        createBudget(6, 2024);
+        var budgetJun = budgetRepository.findAll().stream()
+                .filter(b -> b.getMonth() == 6).findFirst().get();
+        budgetJun.setStatus(org.example.axelnyman.main.domain.model.BudgetStatus.LOCKED);
+        budgetRepository.save(budgetJun);
+
+        createBudget(12, 2024);
+
+        // When & Then - newest month first
+        mockMvc.perform(get("/api/budgets"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.budgets", hasSize(3)))
+                .andExpect(jsonPath("$.budgets[0].month", is(12)))
+                .andExpect(jsonPath("$.budgets[1].month", is(6)))
+                .andExpect(jsonPath("$.budgets[2].month", is(1)));
+    }
+
+    @Test
+    void shouldSortByYearThenMonth() throws Exception {
+        // Given - mix of years and months
+        createBudget(12, 2023);
+        var budget202312 = budgetRepository.findAll().get(0);
+        budget202312.setStatus(org.example.axelnyman.main.domain.model.BudgetStatus.LOCKED);
+        budgetRepository.save(budget202312);
+
+        createBudget(1, 2024);
+        var budget202401 = budgetRepository.findAll().stream()
+                .filter(b -> b.getYear() == 2024 && b.getMonth() == 1).findFirst().get();
+        budget202401.setStatus(org.example.axelnyman.main.domain.model.BudgetStatus.LOCKED);
+        budgetRepository.save(budget202401);
+
+        createBudget(6, 2024);
+
+        // When & Then - sorted by year DESC, then month DESC
+        mockMvc.perform(get("/api/budgets"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.budgets", hasSize(3)))
+                .andExpect(jsonPath("$.budgets[0].year", is(2024)))
+                .andExpect(jsonPath("$.budgets[0].month", is(6)))
+                .andExpect(jsonPath("$.budgets[1].year", is(2024)))
+                .andExpect(jsonPath("$.budgets[1].month", is(1)))
+                .andExpect(jsonPath("$.budgets[2].year", is(2023)))
+                .andExpect(jsonPath("$.budgets[2].month", is(12)));
+    }
+
+    @Test
+    void shouldIncludeBothLockedAndUnlockedBudgets() throws Exception {
+        // Given - one unlocked, one locked
+        createBudget(5, 2024);
+        var lockedBudget = budgetRepository.findAll().get(0);
+        lockedBudget.setStatus(org.example.axelnyman.main.domain.model.BudgetStatus.LOCKED);
+        budgetRepository.save(lockedBudget);
+
+        createBudget(6, 2024);
+
+        // When & Then
+        mockMvc.perform(get("/api/budgets"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.budgets", hasSize(2)))
+                .andExpect(jsonPath("$.budgets[0].status", is("UNLOCKED")))
+                .andExpect(jsonPath("$.budgets[1].status", is("LOCKED")));
+    }
+
+    @Test
+    void shouldShowLockedAtTimestampForLockedBudget() throws Exception {
+        // Given - locked budget with lockedAt timestamp
+        createBudget(5, 2024);
+        var lockedBudget = budgetRepository.findAll().get(0);
+        lockedBudget.setStatus(org.example.axelnyman.main.domain.model.BudgetStatus.LOCKED);
+        lockedBudget.setLockedAt(java.time.LocalDateTime.now());
+        budgetRepository.save(lockedBudget);
+
+        createBudget(6, 2024);
+
+        // When & Then
+        mockMvc.perform(get("/api/budgets"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.budgets[0].lockedAt").doesNotExist())
+                .andExpect(jsonPath("$.budgets[1].lockedAt").exists());
+    }
+
+    @Test
+    void shouldHandleBudgetsFromDifferentYears() throws Exception {
+        // Given - wide year range
+        createBudget(1, 2020);
+        var budget2020 = budgetRepository.findAll().get(0);
+        budget2020.setStatus(org.example.axelnyman.main.domain.model.BudgetStatus.LOCKED);
+        budgetRepository.save(budget2020);
+
+        createBudget(1, 2021);
+        var budget2021 = budgetRepository.findAll().stream()
+                .filter(b -> b.getYear() == 2021).findFirst().get();
+        budget2021.setStatus(org.example.axelnyman.main.domain.model.BudgetStatus.LOCKED);
+        budgetRepository.save(budget2021);
+
+        createBudget(1, 2024);
+
+        // When & Then
+        mockMvc.perform(get("/api/budgets"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.budgets", hasSize(3)))
+                .andExpect(jsonPath("$.budgets[0].year", is(2024)))
+                .andExpect(jsonPath("$.budgets[1].year", is(2021)))
+                .andExpect(jsonPath("$.budgets[2].year", is(2020)));
+    }
+
+    @Test
+    void shouldHandleAllMonthsInYear() throws Exception {
+        // Given - all 12 months (set first 11 to LOCKED)
+        for (int month = 1; month <= 11; month++) {
+            final int currentMonth = month;
+            createBudget(currentMonth, 2024);
+            var budget = budgetRepository.findAll().stream()
+                    .filter(b -> b.getMonth() == currentMonth).findFirst().get();
+            budget.setStatus(org.example.axelnyman.main.domain.model.BudgetStatus.LOCKED);
+            budgetRepository.save(budget);
+        }
+        createBudget(12, 2024);
+
+        // When & Then
+        mockMvc.perform(get("/api/budgets"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.budgets", hasSize(12)))
+                .andExpect(jsonPath("$.budgets[0].month", is(12)))
+                .andExpect(jsonPath("$.budgets[11].month", is(1)));
+    }
+
     // Helper method to create budget request
     private Map<String, Object> createBudgetRequest(Integer month, Integer year) {
         Map<String, Object> request = new HashMap<>();
         request.put("month", month);
         request.put("year", year);
         return request;
+    }
+
+    // Helper method to create budget via API
+    private void createBudget(Integer month, Integer year) throws Exception {
+        Map<String, Object> request = createBudgetRequest(month, year);
+        mockMvc.perform(post("/api/budgets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
     }
 }

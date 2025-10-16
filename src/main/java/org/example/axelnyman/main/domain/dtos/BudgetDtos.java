@@ -37,4 +37,8 @@ public class BudgetDtos {
             LocalDateTime lockedAt,
             BudgetTotalsResponse totals
     ) {}
+
+    public record BudgetListResponse(
+            java.util.List<BudgetResponse> budgets
+    ) {}
 }

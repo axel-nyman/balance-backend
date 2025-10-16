@@ -22,4 +22,9 @@ public class BudgetController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(domainService.createBudget(request));
     }
+
+    @GetMapping
+    public ResponseEntity<BudgetListResponse> getAllBudgets() {
+        return ResponseEntity.ok(domainService.getAllBudgets());
+    }
 }

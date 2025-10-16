@@ -125,4 +125,9 @@ public class DataService implements IDataService {
     public boolean existsByStatus(BudgetStatus status) {
         return budgetRepository.existsByStatusAndDeletedAtIsNull(status);
     }
+
+    @Override
+    public java.util.List<Budget> getAllBudgetsSorted() {
+        return budgetRepository.findAllByDeletedAtIsNullOrderByYearDescMonthDesc();
+    }
 }

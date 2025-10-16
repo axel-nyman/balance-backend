@@ -53,4 +53,6 @@ public interface IDataService {
     boolean existsByMonthAndYear(Integer month, Integer year);
 
     boolean existsByStatus(BudgetStatus status);
+
+    List<Budget> getAllBudgetsSorted();
 }

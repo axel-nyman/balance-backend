@@ -333,4 +333,15 @@ public class DomainService implements IDomainService {
 
         return BudgetExtensions.toResponse(savedBudget);
     }
+
+    @Override
+    public BudgetListResponse getAllBudgets() {
+        List<Budget> budgets = dataService.getAllBudgetsSorted();
+
+        List<BudgetResponse> budgetResponses = budgets.stream()
+                .map(BudgetExtensions::toResponse)
+                .toList();
+
+        return new BudgetListResponse(budgetResponses);
+    }
 }

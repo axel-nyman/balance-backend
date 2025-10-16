@@ -36,4 +36,6 @@ public interface IDomainService {
 
     // Budget operations
     BudgetResponse createBudget(CreateBudgetRequest request);
+
+    BudgetListResponse getAllBudgets();
 }
