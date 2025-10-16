@@ -93,6 +93,14 @@ public class DataService implements IDataService {
     }
 
     @Override
+    public void deleteRecurringExpense(java.util.UUID id) {
+        RecurringExpense expense = recurringExpenseRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Recurring expense not found"));
+        expense.setDeletedAt(LocalDateTime.now());
+        recurringExpenseRepository.save(expense);
+    }
+
+    @Override
     public BalanceHistory saveBalanceHistory(BalanceHistory balanceHistory) {
         return balanceHistoryRepository.save(balanceHistory);
     }

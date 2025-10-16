@@ -56,4 +56,15 @@ public class RecurringExpenseController {
     public ResponseEntity<RecurringExpenseListResponse> getAllRecurringExpenses() {
         return ResponseEntity.ok(domainService.getAllRecurringExpenses());
     }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete recurring expense template", description = "Soft delete a recurring expense template by setting deletedAt timestamp")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Recurring expense deleted successfully"),
+            @ApiResponse(responseCode = "404", description = "Recurring expense not found")
+    })
+    public ResponseEntity<Void> deleteRecurringExpense(@PathVariable UUID id) {
+        domainService.deleteRecurringExpense(id);
+        return ResponseEntity.noContent().build();
+    }
 }

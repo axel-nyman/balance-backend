@@ -244,6 +244,18 @@ public class DomainService implements IDomainService {
         return new RecurringExpenseListResponse(expenseResponses);
     }
 
+    @Override
+    @Transactional
+    public void deleteRecurringExpense(UUID id) {
+        // Validate expense exists and is not already soft-deleted
+        dataService.getRecurringExpenseById(id)
+                .orElseThrow(() -> new org.example.axelnyman.main.shared.exceptions.RecurringExpenseNotFoundException(
+                        "Recurring expense not found with id: " + id));
+
+        // Perform soft delete
+        dataService.deleteRecurringExpense(id);
+    }
+
     /**
      * Calculate the next due date for a recurring expense based on its recurrence interval
      * and last used date.

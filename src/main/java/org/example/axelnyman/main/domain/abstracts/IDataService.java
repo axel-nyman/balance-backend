@@ -40,6 +40,8 @@ public interface IDataService {
 
     List<RecurringExpense> getAllActiveRecurringExpenses();
 
+    void deleteRecurringExpense(UUID id);
+
     // Balance History operations
     BalanceHistory saveBalanceHistory(BalanceHistory balanceHistory);
 }

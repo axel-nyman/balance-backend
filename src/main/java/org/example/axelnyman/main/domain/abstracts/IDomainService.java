@@ -30,4 +30,6 @@ public interface IDomainService {
     RecurringExpenseResponse updateRecurringExpense(UUID id, UpdateRecurringExpenseRequest request);
 
     RecurringExpenseListResponse getAllRecurringExpenses();
+
+    void deleteRecurringExpense(UUID id);
 }

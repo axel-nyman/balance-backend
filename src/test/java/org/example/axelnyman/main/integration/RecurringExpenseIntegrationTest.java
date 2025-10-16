@@ -851,6 +851,112 @@ public class RecurringExpenseIntegrationTest {
                                 .andExpect(jsonPath("$.error").exists());
         }
 
+        // ========== DELETE RECURRING EXPENSE TESTS ==========
+
+        @Test
+        void shouldDeleteRecurringExpenseSuccessfully() throws Exception {
+                // Given - create a recurring expense
+                java.util.UUID expenseId = createRecurringExpense("Netflix Subscription", "15.99", "MONTHLY");
+
+                // When - delete the expense
+                mockMvc.perform(delete("/api/recurring-expenses/" + expenseId)
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isNoContent());
+
+                // Then - verify deletedAt is set in database
+                var deletedExpense = recurringExpenseRepository.findById(expenseId).orElseThrow();
+                assert deletedExpense.getDeletedAt() != null : "deletedAt should be set after deletion";
+        }
+
+        @Test
+        void shouldReturn404WhenDeletingNonExistentExpense() throws Exception {
+                // Given - random UUID that doesn't exist
+                java.util.UUID nonExistentId = java.util.UUID.randomUUID();
+
+                // When & Then - delete should return 404
+                mockMvc.perform(delete("/api/recurring-expenses/" + nonExistentId)
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.error", containsString("not found")));
+        }
+
+        @Test
+        void shouldReturn404WhenDeletingAlreadyDeletedExpense() throws Exception {
+                // Given - create and soft delete an expense
+                java.util.UUID expenseId = createRecurringExpense("Deleted Expense", "100.00", "MONTHLY");
+                var expense = recurringExpenseRepository.findById(expenseId).orElseThrow();
+                expense.setDeletedAt(java.time.LocalDateTime.now());
+                recurringExpenseRepository.save(expense);
+
+                // When & Then - trying to delete again should return 404
+                mockMvc.perform(delete("/api/recurring-expenses/" + expenseId)
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.error", containsString("not found")));
+        }
+
+        @Test
+        void shouldReturn404OnSecondDeleteAttempt() throws Exception {
+                // Given - create a recurring expense
+                java.util.UUID expenseId = createRecurringExpense("Test Expense", "50.00", "MONTHLY");
+
+                // When - delete first time
+                mockMvc.perform(delete("/api/recurring-expenses/" + expenseId)
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isNoContent());
+
+                // Then - delete second time should return 404
+                mockMvc.perform(delete("/api/recurring-expenses/" + expenseId)
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.error", containsString("not found")));
+        }
+
+        @Test
+        void shouldExcludeDeletedExpenseFromListEndpoint() throws Exception {
+                // Given - create 3 expenses
+                createRecurringExpense("Active Expense 1", "100.00", "MONTHLY");
+                createRecurringExpense("Active Expense 2", "200.00", "YEARLY");
+                java.util.UUID expenseToDelete = createRecurringExpense("Will Be Deleted", "300.00", "QUARTERLY");
+
+                // When - delete one expense
+                mockMvc.perform(delete("/api/recurring-expenses/" + expenseToDelete)
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isNoContent());
+
+                // Then - list should only return 2 active expenses
+                mockMvc.perform(get("/api/recurring-expenses")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.expenses", hasSize(2)))
+                                .andExpect(jsonPath("$.expenses[*].name", not(hasItem("Will Be Deleted"))));
+        }
+
+        @Test
+        void shouldAllowNameReuseAfterDeletion() throws Exception {
+                // Given - create and delete an expense
+                java.util.UUID expenseId = createRecurringExpense("Reusable Name", "100.00", "MONTHLY");
+
+                mockMvc.perform(delete("/api/recurring-expenses/" + expenseId)
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isNoContent());
+
+                // When - create new expense with same name
+                var request = new java.util.HashMap<String, Object>();
+                request.put("name", "Reusable Name");
+                request.put("amount", new BigDecimal("150.00"));
+                request.put("recurrenceInterval", "YEARLY");
+                request.put("isManual", true);
+
+                // Then - should succeed without duplicate name error
+                mockMvc.perform(post("/api/recurring-expenses")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.name", is("Reusable Name")))
+                                .andExpect(jsonPath("$.amount", is(150.00)));
+        }
+
         // Helper method to create recurring expense via API
         private java.util.UUID createRecurringExpense(String name, String amount, String interval) throws Exception {
                 var request = new java.util.HashMap<String, Object>();
