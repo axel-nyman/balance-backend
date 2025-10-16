@@ -3,18 +3,25 @@ package org.example.axelnyman.main.domain.services;
 import org.example.axelnyman.main.domain.abstracts.IDataService;
 import org.example.axelnyman.main.domain.abstracts.IDomainService;
 import org.example.axelnyman.main.domain.dtos.BankAccountDtos.*;
+import org.example.axelnyman.main.domain.dtos.BudgetDtos.*;
 import org.example.axelnyman.main.domain.dtos.RecurringExpenseDtos.*;
 import org.example.axelnyman.main.domain.extensions.BankAccountExtensions;
+import org.example.axelnyman.main.domain.extensions.BudgetExtensions;
 import org.example.axelnyman.main.domain.extensions.RecurringExpenseExtensions;
 import org.example.axelnyman.main.domain.model.BalanceHistory;
 import org.example.axelnyman.main.domain.model.BalanceHistorySource;
 import org.example.axelnyman.main.domain.model.BankAccount;
+import org.example.axelnyman.main.domain.model.Budget;
+import org.example.axelnyman.main.domain.model.BudgetStatus;
 import org.example.axelnyman.main.domain.model.RecurringExpense;
 import org.example.axelnyman.main.shared.exceptions.AccountLinkedToBudgetException;
 import org.example.axelnyman.main.shared.exceptions.BankAccountNotFoundException;
 import org.example.axelnyman.main.shared.exceptions.DuplicateBankAccountNameException;
+import org.example.axelnyman.main.shared.exceptions.DuplicateBudgetException;
 import org.example.axelnyman.main.shared.exceptions.DuplicateRecurringExpenseException;
 import org.example.axelnyman.main.shared.exceptions.FutureDateException;
+import org.example.axelnyman.main.shared.exceptions.InvalidYearException;
+import org.example.axelnyman.main.shared.exceptions.UnlockedBudgetExistsException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -300,5 +307,30 @@ public class DomainService implements IDomainService {
 
         // Due if next due date is today or in the past
         return nextDueDate.isBefore(LocalDateTime.now()) || nextDueDate.isEqual(LocalDateTime.now());
+    }
+
+    @Override
+    @Transactional
+    public BudgetResponse createBudget(CreateBudgetRequest request) {
+        // Validate year range (2000-2100)
+        if (request.year() < 2000 || request.year() > 2100) {
+            throw new InvalidYearException("Invalid year value. Must be between 2000 and 2100");
+        }
+
+        // Check for duplicate budget (same month/year) BEFORE unlocked check
+        if (dataService.existsByMonthAndYear(request.month(), request.year())) {
+            throw new DuplicateBudgetException("Budget already exists for this month");
+        }
+
+        // Check if another unlocked budget exists
+        if (dataService.existsByStatus(BudgetStatus.UNLOCKED)) {
+            throw new UnlockedBudgetExistsException("Another budget is currently unlocked. Lock or delete it before creating a new budget.");
+        }
+
+        // Create and save budget
+        Budget budget = BudgetExtensions.toEntity(request);
+        Budget savedBudget = dataService.saveBudget(budget);
+
+        return BudgetExtensions.toResponse(savedBudget);
     }
 }

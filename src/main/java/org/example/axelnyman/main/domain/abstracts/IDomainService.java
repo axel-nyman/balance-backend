@@ -1,6 +1,7 @@
 package org.example.axelnyman.main.domain.abstracts;
 
 import org.example.axelnyman.main.domain.dtos.BankAccountDtos.*;
+import org.example.axelnyman.main.domain.dtos.BudgetDtos.*;
 import org.example.axelnyman.main.domain.dtos.RecurringExpenseDtos.*;
 
 import java.util.UUID;
@@ -32,4 +33,7 @@ public interface IDomainService {
     RecurringExpenseListResponse getAllRecurringExpenses();
 
     void deleteRecurringExpense(UUID id);
+
+    // Budget operations
+    BudgetResponse createBudget(CreateBudgetRequest request);
 }

@@ -3,9 +3,12 @@ package org.example.axelnyman.main.infrastructure.data.services;
 import org.example.axelnyman.main.domain.abstracts.IDataService;
 import org.example.axelnyman.main.domain.model.BalanceHistory;
 import org.example.axelnyman.main.domain.model.BankAccount;
+import org.example.axelnyman.main.domain.model.Budget;
+import org.example.axelnyman.main.domain.model.BudgetStatus;
 import org.example.axelnyman.main.domain.model.RecurringExpense;
 import org.example.axelnyman.main.infrastructure.data.context.BalanceHistoryRepository;
 import org.example.axelnyman.main.infrastructure.data.context.BankAccountRepository;
+import org.example.axelnyman.main.infrastructure.data.context.BudgetRepository;
 import org.example.axelnyman.main.infrastructure.data.context.RecurringExpenseRepository;
 import org.springframework.stereotype.Service;
 
@@ -17,13 +20,16 @@ public class DataService implements IDataService {
     private final BankAccountRepository bankAccountRepository;
     private final BalanceHistoryRepository balanceHistoryRepository;
     private final RecurringExpenseRepository recurringExpenseRepository;
+    private final BudgetRepository budgetRepository;
 
     public DataService(BankAccountRepository bankAccountRepository,
                       BalanceHistoryRepository balanceHistoryRepository,
-                      RecurringExpenseRepository recurringExpenseRepository) {
+                      RecurringExpenseRepository recurringExpenseRepository,
+                      BudgetRepository budgetRepository) {
         this.bankAccountRepository = bankAccountRepository;
         this.balanceHistoryRepository = balanceHistoryRepository;
         this.recurringExpenseRepository = recurringExpenseRepository;
+        this.budgetRepository = budgetRepository;
     }
 
     @Override
@@ -103,5 +109,20 @@ public class DataService implements IDataService {
     @Override
     public BalanceHistory saveBalanceHistory(BalanceHistory balanceHistory) {
         return balanceHistoryRepository.save(balanceHistory);
+    }
+
+    @Override
+    public Budget saveBudget(Budget budget) {
+        return budgetRepository.save(budget);
+    }
+
+    @Override
+    public boolean existsByMonthAndYear(Integer month, Integer year) {
+        return budgetRepository.existsByMonthAndYearAndDeletedAtIsNull(month, year);
+    }
+
+    @Override
+    public boolean existsByStatus(BudgetStatus status) {
+        return budgetRepository.existsByStatusAndDeletedAtIsNull(status);
     }
 }

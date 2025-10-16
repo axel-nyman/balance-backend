@@ -2,6 +2,8 @@ package org.example.axelnyman.main.domain.abstracts;
 
 import org.example.axelnyman.main.domain.model.BalanceHistory;
 import org.example.axelnyman.main.domain.model.BankAccount;
+import org.example.axelnyman.main.domain.model.Budget;
+import org.example.axelnyman.main.domain.model.BudgetStatus;
 import org.example.axelnyman.main.domain.model.RecurringExpense;
 
 import java.util.List;
@@ -44,4 +46,11 @@ public interface IDataService {
 
     // Balance History operations
     BalanceHistory saveBalanceHistory(BalanceHistory balanceHistory);
+
+    // Budget operations
+    Budget saveBudget(Budget budget);
+
+    boolean existsByMonthAndYear(Integer month, Integer year);
+
+    boolean existsByStatus(BudgetStatus status);
 }
