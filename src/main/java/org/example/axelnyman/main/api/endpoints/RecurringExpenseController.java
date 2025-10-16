@@ -11,6 +11,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/recurring-expenses")
 @Tag(name = "Recurring Expenses", description = "Recurring expense template management endpoints")
@@ -31,6 +33,19 @@ public class RecurringExpenseController {
     public ResponseEntity<RecurringExpenseResponse> createRecurringExpense(@Valid @RequestBody CreateRecurringExpenseRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(domainService.createRecurringExpense(request));
+    }
+
+    @PutMapping("/{id}")
+    @Operation(summary = "Update recurring expense template", description = "Update an existing recurring expense template with new values")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Recurring expense template updated successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid request or duplicate name"),
+            @ApiResponse(responseCode = "404", description = "Recurring expense not found")
+    })
+    public ResponseEntity<RecurringExpenseResponse> updateRecurringExpense(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateRecurringExpenseRequest request) {
+        return ResponseEntity.ok(domainService.updateRecurringExpense(id, request));
     }
 
     @GetMapping

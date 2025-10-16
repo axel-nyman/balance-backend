@@ -77,6 +77,17 @@ public class DataService implements IDataService {
     }
 
     @Override
+    public boolean existsByRecurringExpenseNameExcludingId(String name, java.util.UUID excludeId) {
+        return recurringExpenseRepository.existsByNameAndDeletedAtIsNullAndIdNot(name, excludeId);
+    }
+
+    @Override
+    public java.util.Optional<RecurringExpense> getRecurringExpenseById(java.util.UUID id) {
+        return recurringExpenseRepository.findById(id)
+                .filter(expense -> expense.getDeletedAt() == null);
+    }
+
+    @Override
     public java.util.List<RecurringExpense> getAllActiveRecurringExpenses() {
         return recurringExpenseRepository.findAllByDeletedAtIsNull();
     }

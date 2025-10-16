@@ -194,6 +194,37 @@ public class DomainService implements IDomainService {
     }
 
     @Override
+    @Transactional
+    public RecurringExpenseResponse updateRecurringExpense(UUID id, UpdateRecurringExpenseRequest request) {
+        // Get recurring expense by ID (will filter out soft-deleted)
+        RecurringExpense expense = dataService.getRecurringExpenseById(id)
+                .orElseThrow(() -> new org.example.axelnyman.main.shared.exceptions.RecurringExpenseNotFoundException(
+                        "Recurring expense not found with id: " + id));
+
+        // If name is changing, check uniqueness (excluding current expense)
+        if (!expense.getName().equals(request.name())) {
+            if (dataService.existsByRecurringExpenseNameExcludingId(request.name(), id)) {
+                throw new DuplicateRecurringExpenseException("Recurring expense with this name already exists");
+            }
+        }
+
+        // Parse and validate recurrence interval (will throw IllegalArgumentException if invalid)
+        org.example.axelnyman.main.domain.model.RecurrenceInterval interval =
+                org.example.axelnyman.main.domain.model.RecurrenceInterval.valueOf(request.recurrenceInterval().toUpperCase());
+
+        // Update fields (DO NOT update lastUsedDate - that's only updated when used in a budget)
+        expense.setName(request.name());
+        expense.setAmount(request.amount());
+        expense.setRecurrenceInterval(interval);
+        expense.setIsManual(request.isManual());
+
+        // Save (updatedAt will be auto-updated by JPA auditing)
+        RecurringExpense updatedExpense = dataService.saveRecurringExpense(expense);
+
+        return RecurringExpenseExtensions.toResponse(updatedExpense);
+    }
+
+    @Override
     public RecurringExpenseListResponse getAllRecurringExpenses() {
         // Fetch all active recurring expenses
         List<RecurringExpense> expenses = dataService.getAllActiveRecurringExpenses();

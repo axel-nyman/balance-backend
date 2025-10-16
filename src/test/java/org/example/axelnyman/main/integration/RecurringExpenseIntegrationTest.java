@@ -539,6 +539,316 @@ public class RecurringExpenseIntegrationTest {
                                 .andExpect(jsonPath("$.expenses[0].isDue", is(false)));
         }
 
+        // ========== UPDATE RECURRING EXPENSE TESTS ==========
+
+        @Test
+        void shouldUpdateRecurringExpenseWithAllFields() throws Exception {
+                // Given - create initial expense
+                java.util.UUID expenseId = createRecurringExpense("Original Name", "100.00", "MONTHLY");
+
+                // When - update all fields
+                var updateRequest = new java.util.HashMap<String, Object>();
+                updateRequest.put("name", "Updated Name");
+                updateRequest.put("amount", new BigDecimal("200.00"));
+                updateRequest.put("recurrenceInterval", "YEARLY");
+                updateRequest.put("isManual", true);
+
+                // Then
+                mockMvc.perform(put("/api/recurring-expenses/" + expenseId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.id", is(expenseId.toString())))
+                                .andExpect(jsonPath("$.name", is("Updated Name")))
+                                .andExpect(jsonPath("$.amount", is(200.00)))
+                                .andExpect(jsonPath("$.recurrenceInterval", is("YEARLY")))
+                                .andExpect(jsonPath("$.isManual", is(true)))
+                                .andExpect(jsonPath("$.updatedAt").exists());
+        }
+
+        @Test
+        void shouldUpdateOnlyName() throws Exception {
+                // Given
+                java.util.UUID expenseId = createRecurringExpense("Old Name", "50.00", "MONTHLY");
+
+                // When - update only name
+                var updateRequest = new java.util.HashMap<String, Object>();
+                updateRequest.put("name", "New Name");
+                updateRequest.put("amount", new BigDecimal("50.00"));
+                updateRequest.put("recurrenceInterval", "MONTHLY");
+                updateRequest.put("isManual", false);
+
+                // Then
+                mockMvc.perform(put("/api/recurring-expenses/" + expenseId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.name", is("New Name")))
+                                .andExpect(jsonPath("$.amount", is(50.00)));
+        }
+
+        @Test
+        void shouldUpdateOnlyAmount() throws Exception {
+                // Given
+                java.util.UUID expenseId = createRecurringExpense("Fixed Name", "100.00", "MONTHLY");
+
+                // When - update only amount
+                var updateRequest = new java.util.HashMap<String, Object>();
+                updateRequest.put("name", "Fixed Name");
+                updateRequest.put("amount", new BigDecimal("150.00"));
+                updateRequest.put("recurrenceInterval", "MONTHLY");
+                updateRequest.put("isManual", false);
+
+                // Then
+                mockMvc.perform(put("/api/recurring-expenses/" + expenseId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.name", is("Fixed Name")))
+                                .andExpect(jsonPath("$.amount", is(150.00)));
+        }
+
+        @Test
+        void shouldUpdateOnlyInterval() throws Exception {
+                // Given
+                java.util.UUID expenseId = createRecurringExpense("Fixed Name", "100.00", "MONTHLY");
+
+                // When - update only interval
+                var updateRequest = new java.util.HashMap<String, Object>();
+                updateRequest.put("name", "Fixed Name");
+                updateRequest.put("amount", new BigDecimal("100.00"));
+                updateRequest.put("recurrenceInterval", "YEARLY");
+                updateRequest.put("isManual", false);
+
+                // Then
+                mockMvc.perform(put("/api/recurring-expenses/" + expenseId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.recurrenceInterval", is("YEARLY")));
+        }
+
+        @Test
+        void shouldUpdateOnlyIsManualFlag() throws Exception {
+                // Given
+                java.util.UUID expenseId = createRecurringExpense("Fixed Name", "100.00", "MONTHLY");
+
+                // When - update only isManual flag
+                var updateRequest = new java.util.HashMap<String, Object>();
+                updateRequest.put("name", "Fixed Name");
+                updateRequest.put("amount", new BigDecimal("100.00"));
+                updateRequest.put("recurrenceInterval", "MONTHLY");
+                updateRequest.put("isManual", true);
+
+                // Then
+                mockMvc.perform(put("/api/recurring-expenses/" + expenseId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.isManual", is(true)));
+        }
+
+        @Test
+        void shouldNotModifyLastUsedDateDuringUpdate() throws Exception {
+                // Given - create expense and set lastUsedDate
+                java.util.UUID expenseId = createRecurringExpense("Test Expense", "100.00", "MONTHLY");
+
+                var expense = recurringExpenseRepository.findById(expenseId).orElseThrow();
+                java.time.LocalDateTime originalLastUsedDate = java.time.LocalDateTime.now().minusDays(10);
+                expense.setLastUsedDate(originalLastUsedDate);
+                recurringExpenseRepository.save(expense);
+
+                // When - update the expense
+                var updateRequest = new java.util.HashMap<String, Object>();
+                updateRequest.put("name", "Updated Test Expense");
+                updateRequest.put("amount", new BigDecimal("150.00"));
+                updateRequest.put("recurrenceInterval", "YEARLY");
+                updateRequest.put("isManual", true);
+
+                mockMvc.perform(put("/api/recurring-expenses/" + expenseId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isOk());
+
+                // Then - verify lastUsedDate is unchanged
+                var updatedExpense = recurringExpenseRepository.findById(expenseId).orElseThrow();
+                assert updatedExpense.getLastUsedDate().equals(originalLastUsedDate)
+                        : "lastUsedDate should not be modified during update";
+        }
+
+        @Test
+        void shouldRejectUpdateWhenNameIsDuplicate() throws Exception {
+                // Given - create two expenses
+                createRecurringExpense("Expense A", "100.00", "MONTHLY");
+                java.util.UUID expenseBId = createRecurringExpense("Expense B", "200.00", "YEARLY");
+
+                // When - try to update Expense B to have the same name as Expense A
+                var updateRequest = new java.util.HashMap<String, Object>();
+                updateRequest.put("name", "Expense A");
+                updateRequest.put("amount", new BigDecimal("200.00"));
+                updateRequest.put("recurrenceInterval", "YEARLY");
+                updateRequest.put("isManual", false);
+
+                // Then - should reject with duplicate error
+                mockMvc.perform(put("/api/recurring-expenses/" + expenseBId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.error", is("Recurring expense with this name already exists")));
+        }
+
+        @Test
+        void shouldAllowSameNameWhenUpdatingOwnRecord() throws Exception {
+                // Given - create expense
+                java.util.UUID expenseId = createRecurringExpense("Netflix", "15.99", "MONTHLY");
+
+                // When - update with same name but different amount
+                var updateRequest = new java.util.HashMap<String, Object>();
+                updateRequest.put("name", "Netflix");
+                updateRequest.put("amount", new BigDecimal("17.99"));
+                updateRequest.put("recurrenceInterval", "MONTHLY");
+                updateRequest.put("isManual", false);
+
+                // Then - should succeed
+                mockMvc.perform(put("/api/recurring-expenses/" + expenseId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.name", is("Netflix")))
+                                .andExpect(jsonPath("$.amount", is(17.99)));
+        }
+
+        @Test
+        void shouldAllowNameOfDeletedExpense() throws Exception {
+                // Given - create and soft delete an expense
+                java.util.UUID deletedExpenseId = createRecurringExpense("Old Name", "100.00", "MONTHLY");
+                var deletedExpense = recurringExpenseRepository.findById(deletedExpenseId).orElseThrow();
+                deletedExpense.setDeletedAt(java.time.LocalDateTime.now());
+                recurringExpenseRepository.save(deletedExpense);
+
+                // Create another expense
+                java.util.UUID activeExpenseId = createRecurringExpense("New Name", "200.00", "YEARLY");
+
+                // When - update active expense to use the deleted expense's name
+                var updateRequest = new java.util.HashMap<String, Object>();
+                updateRequest.put("name", "Old Name");
+                updateRequest.put("amount", new BigDecimal("200.00"));
+                updateRequest.put("recurrenceInterval", "YEARLY");
+                updateRequest.put("isManual", false);
+
+                // Then - should succeed
+                mockMvc.perform(put("/api/recurring-expenses/" + activeExpenseId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.name", is("Old Name")));
+        }
+
+        @Test
+        void shouldRejectUpdateWithNegativeAmount() throws Exception {
+                // Given
+                java.util.UUID expenseId = createRecurringExpense("Test Expense", "100.00", "MONTHLY");
+
+                // When - try to update with negative amount
+                var updateRequest = new java.util.HashMap<String, Object>();
+                updateRequest.put("name", "Test Expense");
+                updateRequest.put("amount", new BigDecimal("-50.00"));
+                updateRequest.put("recurrenceInterval", "MONTHLY");
+                updateRequest.put("isManual", false);
+
+                // Then
+                mockMvc.perform(put("/api/recurring-expenses/" + expenseId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.error").exists())
+                                .andExpect(jsonPath("$.details.amount").exists());
+        }
+
+        @Test
+        void shouldRejectUpdateWithZeroAmount() throws Exception {
+                // Given
+                java.util.UUID expenseId = createRecurringExpense("Test Expense", "100.00", "MONTHLY");
+
+                // When - try to update with zero amount
+                var updateRequest = new java.util.HashMap<String, Object>();
+                updateRequest.put("name", "Test Expense");
+                updateRequest.put("amount", new BigDecimal("0.00"));
+                updateRequest.put("recurrenceInterval", "MONTHLY");
+                updateRequest.put("isManual", false);
+
+                // Then
+                mockMvc.perform(put("/api/recurring-expenses/" + expenseId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.error").exists())
+                                .andExpect(jsonPath("$.details.amount").exists());
+        }
+
+        @Test
+        void shouldReturn404WhenExpenseNotFound() throws Exception {
+                // Given - random UUID that doesn't exist
+                java.util.UUID nonExistentId = java.util.UUID.randomUUID();
+
+                // When - try to update non-existent expense
+                var updateRequest = new java.util.HashMap<String, Object>();
+                updateRequest.put("name", "Test");
+                updateRequest.put("amount", new BigDecimal("100.00"));
+                updateRequest.put("recurrenceInterval", "MONTHLY");
+                updateRequest.put("isManual", false);
+
+                // Then
+                mockMvc.perform(put("/api/recurring-expenses/" + nonExistentId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.error", containsString("not found")));
+        }
+
+        @Test
+        void shouldRejectUpdateOfDeletedExpense() throws Exception {
+                // Given - create and soft delete an expense
+                java.util.UUID expenseId = createRecurringExpense("Deleted Expense", "100.00", "MONTHLY");
+                var expense = recurringExpenseRepository.findById(expenseId).orElseThrow();
+                expense.setDeletedAt(java.time.LocalDateTime.now());
+                recurringExpenseRepository.save(expense);
+
+                // When - try to update the deleted expense
+                var updateRequest = new java.util.HashMap<String, Object>();
+                updateRequest.put("name", "Updated Name");
+                updateRequest.put("amount", new BigDecimal("150.00"));
+                updateRequest.put("recurrenceInterval", "YEARLY");
+                updateRequest.put("isManual", false);
+
+                // Then
+                mockMvc.perform(put("/api/recurring-expenses/" + expenseId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.error", containsString("not found")));
+        }
+
+        @Test
+        void shouldRejectInvalidRecurrenceInterval() throws Exception {
+                // Given
+                java.util.UUID expenseId = createRecurringExpense("Test Expense", "100.00", "MONTHLY");
+
+                // When - try to update with invalid interval
+                var updateRequest = new java.util.HashMap<String, Object>();
+                updateRequest.put("name", "Test Expense");
+                updateRequest.put("amount", new BigDecimal("100.00"));
+                updateRequest.put("recurrenceInterval", "INVALID_INTERVAL");
+                updateRequest.put("isManual", false);
+
+                // Then
+                mockMvc.perform(put("/api/recurring-expenses/" + expenseId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.error").exists());
+        }
+
         // Helper method to create recurring expense via API
         private java.util.UUID createRecurringExpense(String name, String amount, String interval) throws Exception {
                 var request = new java.util.HashMap<String, Object>();

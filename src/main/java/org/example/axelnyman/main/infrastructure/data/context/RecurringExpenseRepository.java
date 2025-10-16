@@ -10,5 +10,6 @@ import java.util.UUID;
 @Repository
 public interface RecurringExpenseRepository extends JpaRepository<RecurringExpense, UUID> {
     boolean existsByNameAndDeletedAtIsNull(String name);
+    boolean existsByNameAndDeletedAtIsNullAndIdNot(String name, UUID id);
     List<RecurringExpense> findAllByDeletedAtIsNull();
 }

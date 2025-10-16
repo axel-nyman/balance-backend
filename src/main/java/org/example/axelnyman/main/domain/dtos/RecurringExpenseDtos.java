@@ -25,6 +25,21 @@ public class RecurringExpenseDtos {
             Boolean isManual
     ) {}
 
+    public record UpdateRecurringExpenseRequest(
+            @NotBlank(message = "Name is required")
+            String name,
+
+            @NotNull(message = "Amount is required")
+            @Positive(message = "Amount must be positive")
+            BigDecimal amount,
+
+            @NotNull(message = "Recurrence interval is required")
+            String recurrenceInterval,
+
+            @NotNull(message = "isManual is required")
+            Boolean isManual
+    ) {}
+
     public record RecurringExpenseResponse(
             UUID id,
             String name,
@@ -32,7 +47,8 @@ public class RecurringExpenseDtos {
             String recurrenceInterval,
             Boolean isManual,
             LocalDateTime lastUsedDate,
-            LocalDateTime createdAt
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt
     ) {}
 
     public record RecurringExpenseListItemResponse(

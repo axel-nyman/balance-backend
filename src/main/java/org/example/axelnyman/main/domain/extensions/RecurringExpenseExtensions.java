@@ -20,7 +20,8 @@ public final class RecurringExpenseExtensions {
                 recurringExpense.getRecurrenceInterval().name(),
                 recurringExpense.getIsManual(),
                 recurringExpense.getLastUsedDate(),
-                recurringExpense.getCreatedAt()
+                recurringExpense.getCreatedAt(),
+                recurringExpense.getUpdatedAt()
         );
     }
 

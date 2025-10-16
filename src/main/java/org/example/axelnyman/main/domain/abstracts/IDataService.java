@@ -34,6 +34,10 @@ public interface IDataService {
 
     boolean existsByRecurringExpenseName(String name);
 
+    boolean existsByRecurringExpenseNameExcludingId(String name, UUID excludeId);
+
+    Optional<RecurringExpense> getRecurringExpenseById(UUID id);
+
     List<RecurringExpense> getAllActiveRecurringExpenses();
 
     // Balance History operations

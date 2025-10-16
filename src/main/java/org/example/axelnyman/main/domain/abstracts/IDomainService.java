@@ -27,5 +27,7 @@ public interface IDomainService {
     // Recurring Expense operations
     RecurringExpenseResponse createRecurringExpense(CreateRecurringExpenseRequest request);
 
+    RecurringExpenseResponse updateRecurringExpense(UUID id, UpdateRecurringExpenseRequest request);
+
     RecurringExpenseListResponse getAllRecurringExpenses();
 }
