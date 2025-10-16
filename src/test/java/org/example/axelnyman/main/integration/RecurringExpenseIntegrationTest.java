@@ -654,7 +654,9 @@ public class RecurringExpenseIntegrationTest {
                 java.util.UUID expenseId = createRecurringExpense("Test Expense", "100.00", "MONTHLY");
 
                 var expense = recurringExpenseRepository.findById(expenseId).orElseThrow();
-                java.time.LocalDateTime originalLastUsedDate = java.time.LocalDateTime.now().minusDays(10);
+                // Truncate to microseconds to match PostgreSQL timestamp precision
+                java.time.LocalDateTime originalLastUsedDate = java.time.LocalDateTime.now().minusDays(10)
+                                .truncatedTo(java.time.temporal.ChronoUnit.MICROS);
                 expense.setLastUsedDate(originalLastUsedDate);
                 recurringExpenseRepository.save(expense);
 
