@@ -2,6 +2,7 @@ package org.example.axelnyman.main.domain.abstracts;
 
 import org.example.axelnyman.main.domain.model.BalanceHistory;
 import org.example.axelnyman.main.domain.model.BankAccount;
+import org.example.axelnyman.main.domain.model.RecurringExpense;
 
 import java.util.List;
 import java.util.Optional;
@@ -27,6 +28,11 @@ public interface IDataService {
     boolean isAccountLinkedToUnlockedBudget(UUID accountId);
 
     void deleteBankAccount(UUID accountId);
+
+    // Recurring Expense operations
+    RecurringExpense saveRecurringExpense(RecurringExpense recurringExpense);
+
+    boolean existsByRecurringExpenseName(String name);
 
     // Balance History operations
     BalanceHistory saveBalanceHistory(BalanceHistory balanceHistory);

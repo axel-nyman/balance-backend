@@ -1,6 +1,7 @@
 package org.example.axelnyman.main.domain.abstracts;
 
 import org.example.axelnyman.main.domain.dtos.BankAccountDtos.*;
+import org.example.axelnyman.main.domain.dtos.RecurringExpenseDtos.*;
 
 import java.util.UUID;
 
@@ -22,4 +23,7 @@ public interface IDomainService {
     BalanceUpdateResponse updateBankAccountBalance(UUID id, UpdateBalanceRequest request);
 
     void deleteBankAccount(UUID id);
+
+    // Recurring Expense operations
+    RecurringExpenseResponse createRecurringExpense(CreateRecurringExpenseRequest request);
 }

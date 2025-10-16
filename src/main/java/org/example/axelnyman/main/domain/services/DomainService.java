@@ -3,13 +3,17 @@ package org.example.axelnyman.main.domain.services;
 import org.example.axelnyman.main.domain.abstracts.IDataService;
 import org.example.axelnyman.main.domain.abstracts.IDomainService;
 import org.example.axelnyman.main.domain.dtos.BankAccountDtos.*;
+import org.example.axelnyman.main.domain.dtos.RecurringExpenseDtos.*;
 import org.example.axelnyman.main.domain.extensions.BankAccountExtensions;
+import org.example.axelnyman.main.domain.extensions.RecurringExpenseExtensions;
 import org.example.axelnyman.main.domain.model.BalanceHistory;
 import org.example.axelnyman.main.domain.model.BalanceHistorySource;
 import org.example.axelnyman.main.domain.model.BankAccount;
+import org.example.axelnyman.main.domain.model.RecurringExpense;
 import org.example.axelnyman.main.shared.exceptions.AccountLinkedToBudgetException;
 import org.example.axelnyman.main.shared.exceptions.BankAccountNotFoundException;
 import org.example.axelnyman.main.shared.exceptions.DuplicateBankAccountNameException;
+import org.example.axelnyman.main.shared.exceptions.DuplicateRecurringExpenseException;
 import org.example.axelnyman.main.shared.exceptions.FutureDateException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -169,5 +173,23 @@ public class DomainService implements IDomainService {
 
         // Perform soft delete
         dataService.deleteBankAccount(id);
+    }
+
+    @Override
+    @Transactional
+    public RecurringExpenseResponse createRecurringExpense(CreateRecurringExpenseRequest request) {
+        // Check name uniqueness
+        if (dataService.existsByRecurringExpenseName(request.name())) {
+            throw new DuplicateRecurringExpenseException("Recurring expense with this name already exists");
+        }
+
+        // Convert to entity (will throw IllegalArgumentException if invalid enum)
+        RecurringExpense expense = RecurringExpenseExtensions.toEntity(request);
+
+        // Save entity
+        RecurringExpense savedExpense = dataService.saveRecurringExpense(expense);
+
+        // Return DTO
+        return RecurringExpenseExtensions.toResponse(savedExpense);
     }
 }

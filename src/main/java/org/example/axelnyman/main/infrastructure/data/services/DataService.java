@@ -3,8 +3,10 @@ package org.example.axelnyman.main.infrastructure.data.services;
 import org.example.axelnyman.main.domain.abstracts.IDataService;
 import org.example.axelnyman.main.domain.model.BalanceHistory;
 import org.example.axelnyman.main.domain.model.BankAccount;
+import org.example.axelnyman.main.domain.model.RecurringExpense;
 import org.example.axelnyman.main.infrastructure.data.context.BalanceHistoryRepository;
 import org.example.axelnyman.main.infrastructure.data.context.BankAccountRepository;
+import org.example.axelnyman.main.infrastructure.data.context.RecurringExpenseRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -14,11 +16,14 @@ public class DataService implements IDataService {
 
     private final BankAccountRepository bankAccountRepository;
     private final BalanceHistoryRepository balanceHistoryRepository;
+    private final RecurringExpenseRepository recurringExpenseRepository;
 
     public DataService(BankAccountRepository bankAccountRepository,
-                      BalanceHistoryRepository balanceHistoryRepository) {
+                      BalanceHistoryRepository balanceHistoryRepository,
+                      RecurringExpenseRepository recurringExpenseRepository) {
         this.bankAccountRepository = bankAccountRepository;
         this.balanceHistoryRepository = balanceHistoryRepository;
+        this.recurringExpenseRepository = recurringExpenseRepository;
     }
 
     @Override
@@ -59,6 +64,16 @@ public class DataService implements IDataService {
                 .orElseThrow(() -> new RuntimeException("Account not found"));
         account.setDeletedAt(LocalDateTime.now());
         bankAccountRepository.save(account);
+    }
+
+    @Override
+    public RecurringExpense saveRecurringExpense(RecurringExpense recurringExpense) {
+        return recurringExpenseRepository.save(recurringExpense);
+    }
+
+    @Override
+    public boolean existsByRecurringExpenseName(String name) {
+        return recurringExpenseRepository.existsByNameAndDeletedAtIsNull(name);
     }
 
     @Override
