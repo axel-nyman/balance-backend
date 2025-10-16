@@ -77,6 +77,11 @@ public class DataService implements IDataService {
     }
 
     @Override
+    public java.util.List<RecurringExpense> getAllActiveRecurringExpenses() {
+        return recurringExpenseRepository.findAllByDeletedAtIsNull();
+    }
+
+    @Override
     public BalanceHistory saveBalanceHistory(BalanceHistory balanceHistory) {
         return balanceHistoryRepository.save(balanceHistory);
     }

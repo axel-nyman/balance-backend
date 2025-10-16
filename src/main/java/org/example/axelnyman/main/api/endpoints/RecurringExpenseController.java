@@ -32,4 +32,13 @@ public class RecurringExpenseController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(domainService.createRecurringExpense(request));
     }
+
+    @GetMapping
+    @Operation(summary = "List all recurring expenses", description = "Get all active recurring expenses with due date calculation and sorted by name")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Recurring expenses retrieved successfully")
+    })
+    public ResponseEntity<RecurringExpenseListResponse> getAllRecurringExpenses() {
+        return ResponseEntity.ok(domainService.getAllRecurringExpenses());
+    }
 }

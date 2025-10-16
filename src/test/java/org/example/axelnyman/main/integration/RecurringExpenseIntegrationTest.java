@@ -324,4 +324,235 @@ public class RecurringExpenseIntegrationTest {
                 var savedExpense = recurringExpenseRepository.findAll().get(0);
                 assert savedExpense.getLastUsedDate() == null : "lastUsedDate should be null on creation";
         }
+
+        // ========== LIST RECURRING EXPENSES TESTS ==========
+
+        @Test
+        void shouldListAllActiveRecurringExpenses() throws Exception {
+                // Given - create 3 expenses with different names
+                createRecurringExpense("Zebra Subscription", "100.00", "MONTHLY");
+                createRecurringExpense("Apple Music", "10.99", "MONTHLY");
+                createRecurringExpense("Mango Insurance", "500.00", "YEARLY");
+
+                // When & Then
+                mockMvc.perform(get("/api/recurring-expenses")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.expenses", hasSize(3)))
+                                // Verify sorted alphabetically
+                                .andExpect(jsonPath("$.expenses[0].name", is("Apple Music")))
+                                .andExpect(jsonPath("$.expenses[1].name", is("Mango Insurance")))
+                                .andExpect(jsonPath("$.expenses[2].name", is("Zebra Subscription")));
+        }
+
+        @Test
+        void shouldCalculateNextDueDateForNeverUsedExpense() throws Exception {
+                // Given - create expense that has never been used (lastUsedDate = null)
+                createRecurringExpense("Never Used Expense", "50.00", "MONTHLY");
+
+                // When & Then
+                mockMvc.perform(get("/api/recurring-expenses")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.expenses", hasSize(1)))
+                                .andExpect(jsonPath("$.expenses[0].lastUsedDate").value(nullValue()))
+                                .andExpect(jsonPath("$.expenses[0].nextDueDate").value(nullValue()))
+                                .andExpect(jsonPath("$.expenses[0].isDue", is(true))); // Always due if never used
+        }
+
+        @Test
+        void shouldCalculateNextDueDateForMonthlyInterval() throws Exception {
+                // Given - create expense with MONTHLY interval
+                java.util.UUID expenseId = createRecurringExpense("Monthly Bill", "100.00", "MONTHLY");
+
+                // Set lastUsedDate to 2 months ago (so it's past due)
+                var expense = recurringExpenseRepository.findById(expenseId).orElseThrow();
+                java.time.LocalDateTime lastUsed = java.time.LocalDateTime.now().minusMonths(2);
+                expense.setLastUsedDate(lastUsed);
+                recurringExpenseRepository.save(expense);
+
+                // Expected next due date = lastUsed + 1 month (which is 1 month ago, so past
+                // due)
+
+                // When & Then
+                mockMvc.perform(get("/api/recurring-expenses")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.expenses", hasSize(1)))
+                                .andExpect(jsonPath("$.expenses[0].nextDueDate").exists())
+                                .andExpect(jsonPath("$.expenses[0].isDue", is(true))); // 2 months ago means it's past
+                                                                                       // due
+        }
+
+        @Test
+        void shouldCalculateNextDueDateForQuarterlyInterval() throws Exception {
+                // Given - create expense with QUARTERLY interval
+                java.util.UUID expenseId = createRecurringExpense("Quarterly Tax", "500.00", "QUARTERLY");
+
+                // Set lastUsedDate to 2 months ago
+                var expense = recurringExpenseRepository.findById(expenseId).orElseThrow();
+                java.time.LocalDateTime lastUsed = java.time.LocalDateTime.now().minusMonths(2);
+                expense.setLastUsedDate(lastUsed);
+                recurringExpenseRepository.save(expense);
+
+                // Expected next due date = lastUsed + 3 months
+                @SuppressWarnings("unused")
+                java.time.LocalDateTime expectedNextDue = lastUsed.plusMonths(3);
+
+                // When & Then - should not be due yet (2 months < 3 months)
+                mockMvc.perform(get("/api/recurring-expenses")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.expenses", hasSize(1)))
+                                .andExpect(jsonPath("$.expenses[0].nextDueDate").exists())
+                                .andExpect(jsonPath("$.expenses[0].isDue", is(false))); // Not due yet
+        }
+
+        @Test
+        void shouldCalculateNextDueDateForBiannuallyInterval() throws Exception {
+                // Given - create expense with BIANNUALLY interval
+                java.util.UUID expenseId = createRecurringExpense("Car Insurance", "800.00", "BIANNUALLY");
+
+                // Set lastUsedDate to 7 months ago
+                var expense = recurringExpenseRepository.findById(expenseId).orElseThrow();
+                java.time.LocalDateTime lastUsed = java.time.LocalDateTime.now().minusMonths(7);
+                expense.setLastUsedDate(lastUsed);
+                recurringExpenseRepository.save(expense);
+
+                // Expected next due date = lastUsed + 6 months
+                @SuppressWarnings("unused")
+                java.time.LocalDateTime expectedNextDue = lastUsed.plusMonths(6);
+
+                // When & Then - should be due (7 months > 6 months)
+                mockMvc.perform(get("/api/recurring-expenses")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.expenses", hasSize(1)))
+                                .andExpect(jsonPath("$.expenses[0].nextDueDate").exists())
+                                .andExpect(jsonPath("$.expenses[0].isDue", is(true))); // Past due
+        }
+
+        @Test
+        void shouldCalculateNextDueDateForYearlyInterval() throws Exception {
+                // Given - create expense with YEARLY interval
+                java.util.UUID expenseId = createRecurringExpense("Annual Subscription", "1200.00", "YEARLY");
+
+                // Set lastUsedDate to 11 months ago
+                var expense = recurringExpenseRepository.findById(expenseId).orElseThrow();
+                java.time.LocalDateTime lastUsed = java.time.LocalDateTime.now().minusMonths(11);
+                expense.setLastUsedDate(lastUsed);
+                recurringExpenseRepository.save(expense);
+
+                // Expected next due date = lastUsed + 1 year
+                @SuppressWarnings("unused")
+                java.time.LocalDateTime expectedNextDue = lastUsed.plusYears(1);
+
+                // When & Then - should not be due yet (11 months < 12 months)
+                mockMvc.perform(get("/api/recurring-expenses")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.expenses", hasSize(1)))
+                                .andExpect(jsonPath("$.expenses[0].nextDueDate").exists())
+                                .andExpect(jsonPath("$.expenses[0].isDue", is(false))); // Not due yet
+        }
+
+        @Test
+        void shouldExcludeSoftDeletedExpenses() throws Exception {
+                // Given - create 2 active expenses
+                createRecurringExpense("Active Expense 1", "100.00", "MONTHLY");
+                createRecurringExpense("Active Expense 2", "200.00", "YEARLY");
+
+                // Create and soft delete one expense
+                java.util.UUID deletedExpenseId = createRecurringExpense("Deleted Expense", "300.00", "QUARTERLY");
+                var deletedExpense = recurringExpenseRepository.findById(deletedExpenseId).orElseThrow();
+                deletedExpense.setDeletedAt(java.time.LocalDateTime.now());
+                recurringExpenseRepository.save(deletedExpense);
+
+                // When & Then - should only return 2 active expenses
+                mockMvc.perform(get("/api/recurring-expenses")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.expenses", hasSize(2)))
+                                .andExpect(jsonPath("$.expenses[*].name", not(hasItem("Deleted Expense"))));
+        }
+
+        @Test
+        void shouldReturnEmptyListWhenNoExpenses() throws Exception {
+                // Given - no expenses in database (already cleaned in setUp)
+
+                // When & Then
+                mockMvc.perform(get("/api/recurring-expenses")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.expenses", hasSize(0)))
+                                .andExpect(jsonPath("$.expenses", is(empty())));
+        }
+
+        @Test
+        void shouldSortExpensesByNameAlphabetically() throws Exception {
+                // Given - create expenses in non-alphabetical order
+                createRecurringExpense("Zebra", "100.00", "MONTHLY");
+                createRecurringExpense("Apple", "200.00", "YEARLY");
+                createRecurringExpense("Mango", "300.00", "QUARTERLY");
+                createRecurringExpense("Banana", "150.00", "BIANNUALLY");
+
+                // When & Then - verify returned in alphabetical order
+                mockMvc.perform(get("/api/recurring-expenses")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.expenses", hasSize(4)))
+                                .andExpect(jsonPath("$.expenses[0].name", is("Apple")))
+                                .andExpect(jsonPath("$.expenses[1].name", is("Banana")))
+                                .andExpect(jsonPath("$.expenses[2].name", is("Mango")))
+                                .andExpect(jsonPath("$.expenses[3].name", is("Zebra")));
+        }
+
+        @Test
+        void shouldMarkExpenseAsDueWhenNextDueDateIsPast() throws Exception {
+                // Given - create expense with lastUsedDate 2 months ago and MONTHLY interval
+                java.util.UUID expenseId = createRecurringExpense("Overdue Expense", "100.00", "MONTHLY");
+
+                var expense = recurringExpenseRepository.findById(expenseId).orElseThrow();
+                expense.setLastUsedDate(java.time.LocalDateTime.now().minusMonths(2));
+                recurringExpenseRepository.save(expense);
+
+                // When & Then - should be marked as due
+                mockMvc.perform(get("/api/recurring-expenses")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.expenses[0].isDue", is(true)));
+        }
+
+        @Test
+        void shouldMarkExpenseAsNotDueWhenNextDueDateIsFuture() throws Exception {
+                // Given - create expense with lastUsedDate 1 day ago and MONTHLY interval
+                java.util.UUID expenseId = createRecurringExpense("Recent Expense", "100.00", "MONTHLY");
+
+                var expense = recurringExpenseRepository.findById(expenseId).orElseThrow();
+                expense.setLastUsedDate(java.time.LocalDateTime.now().minusDays(1));
+                recurringExpenseRepository.save(expense);
+
+                // When & Then - should not be marked as due (only 1 day < 1 month)
+                mockMvc.perform(get("/api/recurring-expenses")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.expenses[0].isDue", is(false)));
+        }
+
+        // Helper method to create recurring expense via API
+        private java.util.UUID createRecurringExpense(String name, String amount, String interval) throws Exception {
+                var request = new java.util.HashMap<String, Object>();
+                request.put("name", name);
+                request.put("amount", new BigDecimal(amount));
+                request.put("recurrenceInterval", interval);
+                request.put("isManual", false);
+
+                String response = mockMvc.perform(post("/api/recurring-expenses")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isCreated())
+                                .andReturn().getResponse().getContentAsString();
+
+                return java.util.UUID.fromString(objectMapper.readTree(response).get("id").asText());
+        }
 }

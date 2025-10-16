@@ -34,4 +34,20 @@ public class RecurringExpenseDtos {
             LocalDateTime lastUsedDate,
             LocalDateTime createdAt
     ) {}
+
+    public record RecurringExpenseListItemResponse(
+            UUID id,
+            String name,
+            BigDecimal amount,
+            String recurrenceInterval,
+            Boolean isManual,
+            LocalDateTime lastUsedDate,
+            LocalDateTime nextDueDate,
+            Boolean isDue,
+            LocalDateTime createdAt
+    ) {}
+
+    public record RecurringExpenseListResponse(
+            java.util.List<RecurringExpenseListItemResponse> expenses
+    ) {}
 }

@@ -192,4 +192,70 @@ public class DomainService implements IDomainService {
         // Return DTO
         return RecurringExpenseExtensions.toResponse(savedExpense);
     }
+
+    @Override
+    public RecurringExpenseListResponse getAllRecurringExpenses() {
+        // Fetch all active recurring expenses
+        List<RecurringExpense> expenses = dataService.getAllActiveRecurringExpenses();
+
+        // Map to list item responses with due date calculation
+        List<RecurringExpenseListItemResponse> expenseResponses = expenses.stream()
+                .map(expense -> {
+                    // Calculate next due date and isDue flag
+                    LocalDateTime nextDueDate = calculateNextDueDate(expense);
+                    Boolean isDue = calculateIsDue(expense.getLastUsedDate(), nextDueDate);
+
+                    return RecurringExpenseExtensions.toListItemResponse(expense, nextDueDate, isDue);
+                })
+                .sorted(Comparator.comparing(RecurringExpenseListItemResponse::name))
+                .toList();
+
+        return new RecurringExpenseListResponse(expenseResponses);
+    }
+
+    /**
+     * Calculate the next due date for a recurring expense based on its recurrence interval
+     * and last used date.
+     *
+     * @param expense The recurring expense
+     * @return The next due date, or null if the expense has never been used
+     */
+    private LocalDateTime calculateNextDueDate(RecurringExpense expense) {
+        LocalDateTime lastUsedDate = expense.getLastUsedDate();
+
+        // If never used, next due date is null
+        if (lastUsedDate == null) {
+            return null;
+        }
+
+        // Calculate next due date based on interval
+        return switch (expense.getRecurrenceInterval()) {
+            case MONTHLY -> lastUsedDate.plusMonths(1);
+            case QUARTERLY -> lastUsedDate.plusMonths(3);
+            case BIANNUALLY -> lastUsedDate.plusMonths(6);
+            case YEARLY -> lastUsedDate.plusYears(1);
+        };
+    }
+
+    /**
+     * Determine if a recurring expense is currently due.
+     *
+     * @param lastUsedDate The last used date
+     * @param nextDueDate The calculated next due date
+     * @return true if the expense is due, false otherwise
+     */
+    private Boolean calculateIsDue(LocalDateTime lastUsedDate, LocalDateTime nextDueDate) {
+        // If never used, always due
+        if (lastUsedDate == null) {
+            return true;
+        }
+
+        // If next due date is null (shouldn't happen if lastUsedDate is not null), consider not due
+        if (nextDueDate == null) {
+            return false;
+        }
+
+        // Due if next due date is today or in the past
+        return nextDueDate.isBefore(LocalDateTime.now()) || nextDueDate.isEqual(LocalDateTime.now());
+    }
 }

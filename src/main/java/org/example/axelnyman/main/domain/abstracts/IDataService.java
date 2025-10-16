@@ -34,6 +34,8 @@ public interface IDataService {
 
     boolean existsByRecurringExpenseName(String name);
 
+    List<RecurringExpense> getAllActiveRecurringExpenses();
+
     // Balance History operations
     BalanceHistory saveBalanceHistory(BalanceHistory balanceHistory);
 }
