@@ -38,4 +38,6 @@ public interface IDomainService {
     BudgetResponse createBudget(CreateBudgetRequest request);
 
     BudgetListResponse getAllBudgets();
+
+    BudgetIncomeResponse addIncomeToBudget(UUID budgetId, CreateBudgetIncomeRequest request);
 }

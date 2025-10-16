@@ -7,15 +7,19 @@ import org.example.axelnyman.main.domain.dtos.BudgetDtos.*;
 import org.example.axelnyman.main.domain.dtos.RecurringExpenseDtos.*;
 import org.example.axelnyman.main.domain.extensions.BankAccountExtensions;
 import org.example.axelnyman.main.domain.extensions.BudgetExtensions;
+import org.example.axelnyman.main.domain.extensions.BudgetIncomeExtensions;
 import org.example.axelnyman.main.domain.extensions.RecurringExpenseExtensions;
 import org.example.axelnyman.main.domain.model.BalanceHistory;
 import org.example.axelnyman.main.domain.model.BalanceHistorySource;
 import org.example.axelnyman.main.domain.model.BankAccount;
 import org.example.axelnyman.main.domain.model.Budget;
+import org.example.axelnyman.main.domain.model.BudgetIncome;
 import org.example.axelnyman.main.domain.model.BudgetStatus;
 import org.example.axelnyman.main.domain.model.RecurringExpense;
 import org.example.axelnyman.main.shared.exceptions.AccountLinkedToBudgetException;
 import org.example.axelnyman.main.shared.exceptions.BankAccountNotFoundException;
+import org.example.axelnyman.main.shared.exceptions.BudgetLockedException;
+import org.example.axelnyman.main.shared.exceptions.BudgetNotFoundException;
 import org.example.axelnyman.main.shared.exceptions.DuplicateBankAccountNameException;
 import org.example.axelnyman.main.shared.exceptions.DuplicateBudgetException;
 import org.example.axelnyman.main.shared.exceptions.DuplicateRecurringExpenseException;
@@ -343,5 +347,32 @@ public class DomainService implements IDomainService {
                 .toList();
 
         return new BudgetListResponse(budgetResponses);
+    }
+
+    @Override
+    @Transactional
+    public BudgetIncomeResponse addIncomeToBudget(UUID budgetId, CreateBudgetIncomeRequest request) {
+        // Get budget and verify it exists and is not deleted
+        Budget budget = dataService.getBudgetById(budgetId)
+                .orElseThrow(() -> new BudgetNotFoundException("Budget not found with id: " + budgetId));
+
+        // Check if budget is unlocked
+        if (budget.getStatus() == BudgetStatus.LOCKED) {
+            throw new BudgetLockedException("Cannot modify locked budget");
+        }
+
+        // Get bank account and verify it exists and is not deleted
+        BankAccount bankAccount = dataService.getBankAccountById(request.bankAccountId())
+                .orElseThrow(() -> new BankAccountNotFoundException("Bank account not found with id: " + request.bankAccountId()));
+
+        if (bankAccount.getDeletedAt() != null) {
+            throw new BankAccountNotFoundException("Bank account not found with id: " + request.bankAccountId());
+        }
+
+        // Create and save budget income
+        BudgetIncome budgetIncome = BudgetIncomeExtensions.toEntity(request, budgetId);
+        BudgetIncome savedIncome = dataService.saveBudgetIncome(budgetIncome);
+
+        return BudgetIncomeExtensions.toResponse(savedIncome, bankAccount);
     }
 }

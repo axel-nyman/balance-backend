@@ -19,11 +19,13 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -57,6 +59,12 @@ public class BudgetIntegrationTest {
     private BudgetRepository budgetRepository;
 
     @Autowired
+    private org.example.axelnyman.main.infrastructure.data.context.BankAccountRepository bankAccountRepository;
+
+    @Autowired
+    private org.example.axelnyman.main.infrastructure.data.context.BudgetIncomeRepository budgetIncomeRepository;
+
+    @Autowired
     private ObjectMapper objectMapper;
 
     private MockMvc mockMvc;
@@ -67,8 +75,10 @@ public class BudgetIntegrationTest {
                 .webAppContextSetup(context)
                 .build();
 
-        // Clean database state between tests
+        // Clean database state between tests (order matters due to foreign keys)
+        budgetIncomeRepository.deleteAll();
         budgetRepository.deleteAll();
+        bankAccountRepository.deleteAll();
     }
 
     @AfterAll
@@ -579,6 +589,352 @@ public class BudgetIntegrationTest {
                 .andExpect(jsonPath("$.budgets[11].month", is(1)));
     }
 
+    // ============================================
+    // Add Income to Budget Tests (Story 12)
+    // ============================================
+
+    @Test
+    void shouldAddIncomeToUnlockedBudget() throws Exception {
+        // Given - create unlocked budget and bank account
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Salary Account", "Main income", new BigDecimal("5000.00"));
+
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("name", "Monthly Salary");
+        incomeRequest.put("amount", new BigDecimal("3000.00"));
+        incomeRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").exists())
+                .andExpect(jsonPath("$.budgetId", is(budget.getId().toString())))
+                .andExpect(jsonPath("$.name", is("Monthly Salary")))
+                .andExpect(jsonPath("$.amount", is(3000.00)))
+                .andExpect(jsonPath("$.bankAccount").exists())
+                .andExpect(jsonPath("$.bankAccount.id", is(bankAccount.getId().toString())))
+                .andExpect(jsonPath("$.bankAccount.name", is("Salary Account")))
+                .andExpect(jsonPath("$.bankAccount.currentBalance", is(5000.00)))
+                .andExpect(jsonPath("$.createdAt").exists());
+    }
+
+    @Test
+    void shouldReturnIncomeWithBankAccountDetails() throws Exception {
+        // Given - budget and bank account with specific details
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Checking", "Primary account", new BigDecimal("1234.56"));
+
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("name", "Freelance Payment");
+        incomeRequest.put("amount", new BigDecimal("500.00"));
+        incomeRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        // When & Then - verify nested bank account object
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.bankAccount.id").exists())
+                .andExpect(jsonPath("$.bankAccount.name").exists())
+                .andExpect(jsonPath("$.bankAccount.currentBalance").exists());
+    }
+
+    @Test
+    void shouldReturnCreatedTimestampForIncome() throws Exception {
+        // Given
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Test Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("name", "Income");
+        incomeRequest.put("amount", new BigDecimal("100.00"));
+        incomeRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.createdAt").exists())
+                .andExpect(jsonPath("$.createdAt").isNotEmpty());
+    }
+
+    @Test
+    void shouldRejectIncomeForLockedBudget() throws Exception {
+        // Given - locked budget
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        budget.setStatus(org.example.axelnyman.main.domain.model.BudgetStatus.LOCKED);
+        budgetRepository.save(budget);
+
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("name", "Income");
+        incomeRequest.put("amount", new BigDecimal("1000.00"));
+        incomeRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error", is("Cannot modify locked budget")));
+    }
+
+    @Test
+    void shouldRejectIncomeForNonExistentBudget() throws Exception {
+        // Given - non-existent budget ID
+        java.util.UUID nonExistentId = java.util.UUID.randomUUID();
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("name", "Income");
+        incomeRequest.put("amount", new BigDecimal("1000.00"));
+        incomeRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + nonExistentId + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    void shouldRejectIncomeForDeletedBudget() throws Exception {
+        // Given - soft-deleted budget
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        budget.setDeletedAt(java.time.LocalDateTime.now());
+        budgetRepository.save(budget);
+
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("name", "Income");
+        incomeRequest.put("amount", new BigDecimal("1000.00"));
+        incomeRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    void shouldRejectNegativeIncomeAmount() throws Exception {
+        // Given
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("name", "Income");
+        incomeRequest.put("amount", new BigDecimal("-100.00"));
+        incomeRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    void shouldRejectZeroIncomeAmount() throws Exception {
+        // Given
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("name", "Income");
+        incomeRequest.put("amount", BigDecimal.ZERO);
+        incomeRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    void shouldAllowDecimalIncomeAmounts() throws Exception {
+        // Given
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("name", "Income");
+        incomeRequest.put("amount", new BigDecimal("1234.56"));
+        incomeRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.amount", is(1234.56)));
+    }
+
+    @Test
+    void shouldRejectEmptyIncomeName() throws Exception {
+        // Given
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("name", "");
+        incomeRequest.put("amount", new BigDecimal("1000.00"));
+        incomeRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    void shouldRejectNullIncomeName() throws Exception {
+        // Given
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("name", null);
+        incomeRequest.put("amount", new BigDecimal("1000.00"));
+        incomeRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    void shouldAllowLongIncomeNames() throws Exception {
+        // Given
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        String longName = "This is a reasonably long income name that should be accepted by the system";
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("name", longName);
+        incomeRequest.put("amount", new BigDecimal("1000.00"));
+        incomeRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.name", is(longName)));
+    }
+
+    @Test
+    void shouldRejectNonExistentBankAccount() throws Exception {
+        // Given - non-existent bank account ID
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        java.util.UUID nonExistentAccountId = java.util.UUID.randomUUID();
+
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("name", "Income");
+        incomeRequest.put("amount", new BigDecimal("1000.00"));
+        incomeRequest.put("bankAccountId", nonExistentAccountId.toString());
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    void shouldRejectDeletedBankAccount() throws Exception {
+        // Given - soft-deleted bank account
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Deleted Account", "Will be deleted", new BigDecimal("1000.00"));
+        bankAccount.setDeletedAt(java.time.LocalDateTime.now());
+        bankAccountRepository.save(bankAccount);
+
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("name", "Income");
+        incomeRequest.put("amount", new BigDecimal("1000.00"));
+        incomeRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    void shouldRejectNullBankAccountId() throws Exception {
+        // Given
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("name", "Income");
+        incomeRequest.put("amount", new BigDecimal("1000.00"));
+        incomeRequest.put("bankAccountId", null);
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    void shouldPreventDeletingBankAccountLinkedToUnlockedBudgetIncome() throws Exception {
+        // Given - bank account used in unlocked budget income
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Linked Account", "Used in budget", new BigDecimal("1000.00"));
+
+        // Add income to budget using this bank account
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("name", "Salary");
+        incomeRequest.put("amount", new BigDecimal("3000.00"));
+        incomeRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isCreated());
+
+        // When & Then - try to delete bank account
+        mockMvc.perform(delete("/api/bank-accounts/" + bankAccount.getId()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error", is("Cannot delete account used in unlocked budget")));
+    }
+
     // Helper method to create budget request
     private Map<String, Object> createBudgetRequest(Integer month, Integer year) {
         Map<String, Object> request = new HashMap<>();
@@ -594,5 +950,15 @@ public class BudgetIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated());
+    }
+
+    // Helper method to create bank account entity directly
+    private org.example.axelnyman.main.domain.model.BankAccount createBankAccountEntity(String name,
+                    String description, BigDecimal initialBalance) {
+        org.example.axelnyman.main.domain.model.BankAccount account = new org.example.axelnyman.main.domain.model.BankAccount();
+        account.setName(name);
+        account.setDescription(description);
+        account.setCurrentBalance(initialBalance);
+        return bankAccountRepository.save(account);
     }
 }

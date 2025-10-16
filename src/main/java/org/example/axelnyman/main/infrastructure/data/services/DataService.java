@@ -4,10 +4,12 @@ import org.example.axelnyman.main.domain.abstracts.IDataService;
 import org.example.axelnyman.main.domain.model.BalanceHistory;
 import org.example.axelnyman.main.domain.model.BankAccount;
 import org.example.axelnyman.main.domain.model.Budget;
+import org.example.axelnyman.main.domain.model.BudgetIncome;
 import org.example.axelnyman.main.domain.model.BudgetStatus;
 import org.example.axelnyman.main.domain.model.RecurringExpense;
 import org.example.axelnyman.main.infrastructure.data.context.BalanceHistoryRepository;
 import org.example.axelnyman.main.infrastructure.data.context.BankAccountRepository;
+import org.example.axelnyman.main.infrastructure.data.context.BudgetIncomeRepository;
 import org.example.axelnyman.main.infrastructure.data.context.BudgetRepository;
 import org.example.axelnyman.main.infrastructure.data.context.RecurringExpenseRepository;
 import org.springframework.stereotype.Service;
@@ -21,15 +23,18 @@ public class DataService implements IDataService {
     private final BalanceHistoryRepository balanceHistoryRepository;
     private final RecurringExpenseRepository recurringExpenseRepository;
     private final BudgetRepository budgetRepository;
+    private final BudgetIncomeRepository budgetIncomeRepository;
 
     public DataService(BankAccountRepository bankAccountRepository,
                       BalanceHistoryRepository balanceHistoryRepository,
                       RecurringExpenseRepository recurringExpenseRepository,
-                      BudgetRepository budgetRepository) {
+                      BudgetRepository budgetRepository,
+                      BudgetIncomeRepository budgetIncomeRepository) {
         this.bankAccountRepository = bankAccountRepository;
         this.balanceHistoryRepository = balanceHistoryRepository;
         this.recurringExpenseRepository = recurringExpenseRepository;
         this.budgetRepository = budgetRepository;
+        this.budgetIncomeRepository = budgetIncomeRepository;
     }
 
     @Override
@@ -59,9 +64,7 @@ public class DataService implements IDataService {
 
     @Override
     public boolean isAccountLinkedToUnlockedBudget(java.util.UUID accountId) {
-        // TODO: Update this method when Budget entity is created in Sprint 2
-        // For now, return false since budgets don't exist yet
-        return false;
+        return budgetIncomeRepository.existsByBankAccountIdAndBudget_Status(accountId, BudgetStatus.UNLOCKED);
     }
 
     @Override
@@ -129,5 +132,16 @@ public class DataService implements IDataService {
     @Override
     public java.util.List<Budget> getAllBudgetsSorted() {
         return budgetRepository.findAllByDeletedAtIsNullOrderByYearDescMonthDesc();
+    }
+
+    @Override
+    public java.util.Optional<Budget> getBudgetById(java.util.UUID id) {
+        return budgetRepository.findById(id)
+                .filter(budget -> budget.getDeletedAt() == null);
+    }
+
+    @Override
+    public BudgetIncome saveBudgetIncome(BudgetIncome budgetIncome) {
+        return budgetIncomeRepository.save(budgetIncome);
     }
 }

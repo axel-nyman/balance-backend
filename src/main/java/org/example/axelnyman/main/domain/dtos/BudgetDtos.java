@@ -2,7 +2,9 @@ package org.example.axelnyman.main.domain.dtos;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import org.example.axelnyman.main.domain.model.BudgetStatus;
 
 import java.math.BigDecimal;
@@ -40,5 +42,32 @@ public class BudgetDtos {
 
     public record BudgetListResponse(
             java.util.List<BudgetResponse> budgets
+    ) {}
+
+    public record CreateBudgetIncomeRequest(
+            @NotBlank(message = "Name is required")
+            String name,
+
+            @NotNull(message = "Amount is required")
+            @Positive(message = "Amount must be positive")
+            BigDecimal amount,
+
+            @NotNull(message = "Bank account ID is required")
+            UUID bankAccountId
+    ) {}
+
+    public record BankAccountSummary(
+            UUID id,
+            String name,
+            BigDecimal currentBalance
+    ) {}
+
+    public record BudgetIncomeResponse(
+            UUID id,
+            UUID budgetId,
+            String name,
+            BigDecimal amount,
+            BankAccountSummary bankAccount,
+            LocalDateTime createdAt
     ) {}
 }
