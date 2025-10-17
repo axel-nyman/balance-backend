@@ -1589,6 +1589,171 @@ public class BudgetIntegrationTest {
                 .andExpect(jsonPath("$.name", is(longName)));
     }
 
+    // ============================================
+    // Delete Income from Budget Tests (Story 14)
+    // ============================================
+
+    @Test
+    void shouldDeleteIncomeFromUnlockedBudget() throws Exception {
+        // Given - budget with income
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> createRequest = new HashMap<>();
+        createRequest.put("name", "Income to Delete");
+        createRequest.put("amount", new BigDecimal("500.00"));
+        createRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        String createResponse = mockMvc.perform(post("/api/budgets/" + budget.getId() + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String incomeId = objectMapper.readTree(createResponse).get("id").asText();
+
+        // When & Then - delete should return 204 No Content
+        mockMvc.perform(delete("/api/budgets/" + budget.getId() + "/income/" + incomeId))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void shouldActuallyRemoveIncomeFromDatabase() throws Exception {
+        // Given - budget with income
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> createRequest = new HashMap<>();
+        createRequest.put("name", "Income to Delete");
+        createRequest.put("amount", new BigDecimal("500.00"));
+        createRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        String createResponse = mockMvc.perform(post("/api/budgets/" + budget.getId() + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String incomeId = objectMapper.readTree(createResponse).get("id").asText();
+
+        // When - delete income
+        mockMvc.perform(delete("/api/budgets/" + budget.getId() + "/income/" + incomeId))
+                .andExpect(status().isNoContent());
+
+        // Then - verify income is actually removed
+        var remainingIncome = budgetIncomeRepository.findById(java.util.UUID.fromString(incomeId));
+        assert remainingIncome.isEmpty();
+    }
+
+    @Test
+    void shouldRejectDeleteForLockedBudget() throws Exception {
+        // Given - budget with income
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> createRequest = new HashMap<>();
+        createRequest.put("name", "Income");
+        createRequest.put("amount", new BigDecimal("500.00"));
+        createRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        String createResponse = mockMvc.perform(post("/api/budgets/" + budget.getId() + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String incomeId = objectMapper.readTree(createResponse).get("id").asText();
+
+        // Lock the budget
+        budget.setStatus(org.example.axelnyman.main.domain.model.BudgetStatus.LOCKED);
+        budgetRepository.save(budget);
+
+        // When & Then - should reject with 400
+        mockMvc.perform(delete("/api/budgets/" + budget.getId() + "/income/" + incomeId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error", is("Cannot modify items in locked budget")));
+    }
+
+    @Test
+    void shouldRejectDeleteForNonExistentIncome() throws Exception {
+        // Given - budget without the income
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+
+        java.util.UUID nonExistentIncomeId = java.util.UUID.randomUUID();
+
+        // When & Then - should reject with 404
+        mockMvc.perform(delete("/api/budgets/" + budget.getId() + "/income/" + nonExistentIncomeId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    void shouldRejectDeleteForNonExistentBudget() throws Exception {
+        // Given - budget with income
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> createRequest = new HashMap<>();
+        createRequest.put("name", "Income");
+        createRequest.put("amount", new BigDecimal("500.00"));
+        createRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        String createResponse = mockMvc.perform(post("/api/budgets/" + budget.getId() + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String incomeId = objectMapper.readTree(createResponse).get("id").asText();
+
+        java.util.UUID nonExistentBudgetId = java.util.UUID.randomUUID();
+
+        // When & Then - should reject with 404
+        mockMvc.perform(delete("/api/budgets/" + nonExistentBudgetId + "/income/" + incomeId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    void shouldRejectDeleteWhenIncomeDoesNotBelongToBudget() throws Exception {
+        // Given - two budgets, income belongs to first budget
+        createBudget(6, 2024);
+        var budget1 = budgetRepository.findAll().get(0);
+
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> createRequest = new HashMap<>();
+        createRequest.put("name", "Income");
+        createRequest.put("amount", new BigDecimal("500.00"));
+        createRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        String createResponse = mockMvc.perform(post("/api/budgets/" + budget1.getId() + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String incomeId = objectMapper.readTree(createResponse).get("id").asText();
+
+        // Lock budget1 and create budget2
+        budget1.setStatus(org.example.axelnyman.main.domain.model.BudgetStatus.LOCKED);
+        budgetRepository.save(budget1);
+
+        createBudget(7, 2024);
+        var budget2 = budgetRepository.findAll().stream()
+                .filter(b -> b.getMonth() == 7).findFirst().get();
+
+        // When & Then - try to delete income using budget2's ID (income belongs to budget1)
+        mockMvc.perform(delete("/api/budgets/" + budget2.getId() + "/income/" + incomeId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
     // Helper method to create budget request
     private Map<String, Object> createBudgetRequest(Integer month, Integer year) {
         Map<String, Object> request = new HashMap<>();
