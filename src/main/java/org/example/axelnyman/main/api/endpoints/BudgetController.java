@@ -53,4 +53,12 @@ public class BudgetController {
         domainService.deleteBudgetIncome(budgetId, id);
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/{budgetId}/expenses")
+    public ResponseEntity<BudgetExpenseResponse> addExpenseToBudget(
+            @PathVariable UUID budgetId,
+            @Valid @RequestBody CreateBudgetExpenseRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(domainService.addExpenseToBudget(budgetId, request));
+    }
 }

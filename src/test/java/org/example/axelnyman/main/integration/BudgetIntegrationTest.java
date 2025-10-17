@@ -66,6 +66,12 @@ public class BudgetIntegrationTest {
     private org.example.axelnyman.main.infrastructure.data.context.BudgetIncomeRepository budgetIncomeRepository;
 
     @Autowired
+    private org.example.axelnyman.main.infrastructure.data.context.BudgetExpenseRepository budgetExpenseRepository;
+
+    @Autowired
+    private org.example.axelnyman.main.infrastructure.data.context.RecurringExpenseRepository recurringExpenseRepository;
+
+    @Autowired
     private ObjectMapper objectMapper;
 
     private MockMvc mockMvc;
@@ -78,6 +84,8 @@ public class BudgetIntegrationTest {
 
         // Clean database state between tests (order matters due to foreign keys)
         budgetIncomeRepository.deleteAll();
+        budgetExpenseRepository.deleteAll();
+        recurringExpenseRepository.deleteAll();
         budgetRepository.deleteAll();
         bankAccountRepository.deleteAll();
     }
@@ -1754,6 +1762,374 @@ public class BudgetIntegrationTest {
                 .andExpect(jsonPath("$.error").exists());
     }
 
+    // ============================================
+    // Add Expense to Budget Tests (Story 15)
+    // ============================================
+
+    @Test
+    void shouldAddExpenseToUnlockedBudget() throws Exception {
+        // Given - create unlocked budget and bank account
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Checking", "Main account", new BigDecimal("2000.00"));
+
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("name", "Electric Bill");
+        expenseRequest.put("amount", new BigDecimal("150.00"));
+        expenseRequest.put("bankAccountId", bankAccount.getId().toString());
+        expenseRequest.put("isManual", false);
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").exists())
+                .andExpect(jsonPath("$.budgetId", is(budget.getId().toString())))
+                .andExpect(jsonPath("$.name", is("Electric Bill")))
+                .andExpect(jsonPath("$.amount", is(150.00)))
+                .andExpect(jsonPath("$.bankAccount").exists())
+                .andExpect(jsonPath("$.bankAccount.id", is(bankAccount.getId().toString())))
+                .andExpect(jsonPath("$.bankAccount.name", is("Checking")))
+                .andExpect(jsonPath("$.bankAccount.currentBalance", is(2000.00)))
+                .andExpect(jsonPath("$.isManual", is(false)))
+                .andExpect(jsonPath("$.createdAt").exists());
+    }
+
+    @Test
+    void shouldReturnExpenseWithBankAccountDetails() throws Exception {
+        // Given - budget and bank account with specific details
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Savings", "Emergency fund", new BigDecimal("5000.00"));
+
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("name", "Insurance Payment");
+        expenseRequest.put("amount", new BigDecimal("250.00"));
+        expenseRequest.put("bankAccountId", bankAccount.getId().toString());
+        expenseRequest.put("isManual", true);
+
+        // When & Then - verify nested bank account object
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.bankAccount.id").exists())
+                .andExpect(jsonPath("$.bankAccount.name").exists())
+                .andExpect(jsonPath("$.bankAccount.currentBalance").exists());
+    }
+
+    @Test
+    void shouldAddExpenseWithRecurringTemplate() throws Exception {
+        // Given - budget, bank account, and recurring expense template
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Checking", "Main", new BigDecimal("1000.00"));
+
+        // Create recurring expense via API or directly
+        var recurringExpense = createRecurringExpenseEntity("Netflix Subscription", new BigDecimal("15.99"));
+
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("name", "Netflix Subscription");
+        expenseRequest.put("amount", new BigDecimal("15.99"));
+        expenseRequest.put("bankAccountId", bankAccount.getId().toString());
+        expenseRequest.put("recurringExpenseId", recurringExpense.getId().toString());
+        expenseRequest.put("isManual", false);
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").exists())
+                .andExpect(jsonPath("$.recurringExpenseId", is(recurringExpense.getId().toString())));
+    }
+
+    @Test
+    void shouldAddExpenseWithDeductionDate() throws Exception {
+        // Given
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Checking", "Main", new BigDecimal("1000.00"));
+
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("name", "Rent Payment");
+        expenseRequest.put("amount", new BigDecimal("1200.00"));
+        expenseRequest.put("bankAccountId", bankAccount.getId().toString());
+        expenseRequest.put("deductedAt", "2024-06-01");
+        expenseRequest.put("isManual", false);
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.deductedAt", is("2024-06-01")));
+    }
+
+    @Test
+    void shouldAddExpenseMarkedAsManual() throws Exception {
+        // Given
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Cash", "Cash payments", new BigDecimal("500.00"));
+
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("name", "Cash Payment");
+        expenseRequest.put("amount", new BigDecimal("50.00"));
+        expenseRequest.put("bankAccountId", bankAccount.getId().toString());
+        expenseRequest.put("isManual", true);
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.isManual", is(true)));
+    }
+
+    @Test
+    void shouldAddExpenseWithNullDeductionDate() throws Exception {
+        // Given
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Checking", "Main", new BigDecimal("1000.00"));
+
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("name", "Flexible Expense");
+        expenseRequest.put("amount", new BigDecimal("100.00"));
+        expenseRequest.put("bankAccountId", bankAccount.getId().toString());
+        expenseRequest.put("deductedAt", null);
+        expenseRequest.put("isManual", false);
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.deductedAt").doesNotExist());
+    }
+
+    @Test
+    void shouldRejectExpenseForLockedBudget() throws Exception {
+        // Given - locked budget
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        budget.setStatus(org.example.axelnyman.main.domain.model.BudgetStatus.LOCKED);
+        budgetRepository.save(budget);
+
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("name", "Expense");
+        expenseRequest.put("amount", new BigDecimal("100.00"));
+        expenseRequest.put("bankAccountId", bankAccount.getId().toString());
+        expenseRequest.put("isManual", false);
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error", is("Cannot modify locked budget")));
+    }
+
+    @Test
+    void shouldRejectExpenseForNonExistentBudget() throws Exception {
+        // Given - non-existent budget ID
+        java.util.UUID nonExistentId = java.util.UUID.randomUUID();
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("name", "Expense");
+        expenseRequest.put("amount", new BigDecimal("100.00"));
+        expenseRequest.put("bankAccountId", bankAccount.getId().toString());
+        expenseRequest.put("isManual", false);
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + nonExistentId + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    void shouldRejectNegativeExpenseAmount() throws Exception {
+        // Given
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("name", "Expense");
+        expenseRequest.put("amount", new BigDecimal("-50.00"));
+        expenseRequest.put("bankAccountId", bankAccount.getId().toString());
+        expenseRequest.put("isManual", false);
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    void shouldRejectZeroExpenseAmount() throws Exception {
+        // Given
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("name", "Expense");
+        expenseRequest.put("amount", BigDecimal.ZERO);
+        expenseRequest.put("bankAccountId", bankAccount.getId().toString());
+        expenseRequest.put("isManual", false);
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    void shouldRejectEmptyExpenseName() throws Exception {
+        // Given
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("name", "");
+        expenseRequest.put("amount", new BigDecimal("100.00"));
+        expenseRequest.put("bankAccountId", bankAccount.getId().toString());
+        expenseRequest.put("isManual", false);
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    void shouldRejectNullExpenseName() throws Exception {
+        // Given
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("name", null);
+        expenseRequest.put("amount", new BigDecimal("100.00"));
+        expenseRequest.put("bankAccountId", bankAccount.getId().toString());
+        expenseRequest.put("isManual", false);
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    void shouldRejectNonExistentBankAccountForExpense() throws Exception {
+        // Given - non-existent bank account ID
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        java.util.UUID nonExistentAccountId = java.util.UUID.randomUUID();
+
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("name", "Expense");
+        expenseRequest.put("amount", new BigDecimal("100.00"));
+        expenseRequest.put("bankAccountId", nonExistentAccountId.toString());
+        expenseRequest.put("isManual", false);
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    void shouldRejectDeletedBankAccountForExpense() throws Exception {
+        // Given - soft-deleted bank account
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Deleted Account", "Will be deleted", new BigDecimal("1000.00"));
+        bankAccount.setDeletedAt(java.time.LocalDateTime.now());
+        bankAccountRepository.save(bankAccount);
+
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("name", "Expense");
+        expenseRequest.put("amount", new BigDecimal("100.00"));
+        expenseRequest.put("bankAccountId", bankAccount.getId().toString());
+        expenseRequest.put("isManual", false);
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    void shouldRejectNonExistentRecurringExpense() throws Exception {
+        // Given - non-existent recurring expense ID
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+        java.util.UUID nonExistentRecurringId = java.util.UUID.randomUUID();
+
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("name", "Expense");
+        expenseRequest.put("amount", new BigDecimal("100.00"));
+        expenseRequest.put("bankAccountId", bankAccount.getId().toString());
+        expenseRequest.put("recurringExpenseId", nonExistentRecurringId.toString());
+        expenseRequest.put("isManual", false);
+
+        // When & Then
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    void shouldPreventDeletingBankAccountLinkedToUnlockedBudgetExpense() throws Exception {
+        // Given - bank account used in unlocked budget expense
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Linked Account", "Used in budget", new BigDecimal("1000.00"));
+
+        // Add expense to budget using this bank account
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("name", "Electric Bill");
+        expenseRequest.put("amount", new BigDecimal("150.00"));
+        expenseRequest.put("bankAccountId", bankAccount.getId().toString());
+        expenseRequest.put("isManual", false);
+
+        mockMvc.perform(post("/api/budgets/" + budget.getId() + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isCreated());
+
+        // When & Then - try to delete bank account
+        mockMvc.perform(delete("/api/bank-accounts/" + bankAccount.getId()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error", is("Cannot delete account used in unlocked budget")));
+    }
+
     // Helper method to create budget request
     private Map<String, Object> createBudgetRequest(Integer month, Integer year) {
         Map<String, Object> request = new HashMap<>();
@@ -1779,5 +2155,18 @@ public class BudgetIntegrationTest {
         account.setDescription(description);
         account.setCurrentBalance(initialBalance);
         return bankAccountRepository.save(account);
+    }
+
+    // Helper method to create recurring expense entity directly
+    private org.example.axelnyman.main.domain.model.RecurringExpense createRecurringExpenseEntity(String name,
+                    BigDecimal amount) {
+        org.example.axelnyman.main.domain.model.RecurringExpense expense =
+                new org.example.axelnyman.main.domain.model.RecurringExpense(
+                        name,
+                        amount,
+                        org.example.axelnyman.main.domain.model.RecurrenceInterval.MONTHLY,
+                        false
+                );
+        return recurringExpenseRepository.save(expense);
     }
 }

@@ -44,4 +44,6 @@ public interface IDomainService {
     BudgetIncomeResponse updateBudgetIncome(UUID budgetId, UUID id, UpdateBudgetIncomeRequest request);
 
     void deleteBudgetIncome(UUID budgetId, UUID id);
+
+    BudgetExpenseResponse addExpenseToBudget(UUID budgetId, CreateBudgetExpenseRequest request);
 }

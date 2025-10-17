@@ -4,11 +4,13 @@ import org.example.axelnyman.main.domain.abstracts.IDataService;
 import org.example.axelnyman.main.domain.model.BalanceHistory;
 import org.example.axelnyman.main.domain.model.BankAccount;
 import org.example.axelnyman.main.domain.model.Budget;
+import org.example.axelnyman.main.domain.model.BudgetExpense;
 import org.example.axelnyman.main.domain.model.BudgetIncome;
 import org.example.axelnyman.main.domain.model.BudgetStatus;
 import org.example.axelnyman.main.domain.model.RecurringExpense;
 import org.example.axelnyman.main.infrastructure.data.context.BalanceHistoryRepository;
 import org.example.axelnyman.main.infrastructure.data.context.BankAccountRepository;
+import org.example.axelnyman.main.infrastructure.data.context.BudgetExpenseRepository;
 import org.example.axelnyman.main.infrastructure.data.context.BudgetIncomeRepository;
 import org.example.axelnyman.main.infrastructure.data.context.BudgetRepository;
 import org.example.axelnyman.main.infrastructure.data.context.RecurringExpenseRepository;
@@ -24,17 +26,20 @@ public class DataService implements IDataService {
     private final RecurringExpenseRepository recurringExpenseRepository;
     private final BudgetRepository budgetRepository;
     private final BudgetIncomeRepository budgetIncomeRepository;
+    private final BudgetExpenseRepository budgetExpenseRepository;
 
     public DataService(BankAccountRepository bankAccountRepository,
                       BalanceHistoryRepository balanceHistoryRepository,
                       RecurringExpenseRepository recurringExpenseRepository,
                       BudgetRepository budgetRepository,
-                      BudgetIncomeRepository budgetIncomeRepository) {
+                      BudgetIncomeRepository budgetIncomeRepository,
+                      BudgetExpenseRepository budgetExpenseRepository) {
         this.bankAccountRepository = bankAccountRepository;
         this.balanceHistoryRepository = balanceHistoryRepository;
         this.recurringExpenseRepository = recurringExpenseRepository;
         this.budgetRepository = budgetRepository;
         this.budgetIncomeRepository = budgetIncomeRepository;
+        this.budgetExpenseRepository = budgetExpenseRepository;
     }
 
     @Override
@@ -64,7 +69,8 @@ public class DataService implements IDataService {
 
     @Override
     public boolean isAccountLinkedToUnlockedBudget(java.util.UUID accountId) {
-        return budgetIncomeRepository.existsByBankAccountIdAndBudget_Status(accountId, BudgetStatus.UNLOCKED);
+        return budgetIncomeRepository.existsByBankAccountIdAndBudget_Status(accountId, BudgetStatus.UNLOCKED) ||
+               budgetExpenseRepository.existsByBankAccountIdAndBudget_Status(accountId, BudgetStatus.UNLOCKED);
     }
 
     @Override
@@ -153,5 +159,10 @@ public class DataService implements IDataService {
     @Override
     public void deleteBudgetIncome(java.util.UUID id) {
         budgetIncomeRepository.deleteById(id);
+    }
+
+    @Override
+    public BudgetExpense saveBudgetExpense(BudgetExpense budgetExpense) {
+        return budgetExpenseRepository.save(budgetExpense);
     }
 }
