@@ -5,6 +5,7 @@ import org.example.axelnyman.main.domain.model.BankAccount;
 import org.example.axelnyman.main.domain.model.Budget;
 import org.example.axelnyman.main.domain.model.BudgetExpense;
 import org.example.axelnyman.main.domain.model.BudgetIncome;
+import org.example.axelnyman.main.domain.model.BudgetSavings;
 import org.example.axelnyman.main.domain.model.BudgetStatus;
 import org.example.axelnyman.main.domain.model.RecurringExpense;
 
@@ -73,4 +74,7 @@ public interface IDataService {
     Optional<BudgetExpense> getBudgetExpenseById(UUID id);
 
     void deleteBudgetExpense(UUID id);
+
+    // Budget Savings operations
+    BudgetSavings saveBudgetSavings(BudgetSavings budgetSavings);
 }

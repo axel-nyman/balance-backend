@@ -9,6 +9,7 @@ import org.example.axelnyman.main.domain.extensions.BankAccountExtensions;
 import org.example.axelnyman.main.domain.extensions.BudgetExpenseExtensions;
 import org.example.axelnyman.main.domain.extensions.BudgetExtensions;
 import org.example.axelnyman.main.domain.extensions.BudgetIncomeExtensions;
+import org.example.axelnyman.main.domain.extensions.BudgetSavingsExtensions;
 import org.example.axelnyman.main.domain.extensions.RecurringExpenseExtensions;
 import org.example.axelnyman.main.domain.model.BalanceHistory;
 import org.example.axelnyman.main.domain.model.BalanceHistorySource;
@@ -16,6 +17,7 @@ import org.example.axelnyman.main.domain.model.BankAccount;
 import org.example.axelnyman.main.domain.model.Budget;
 import org.example.axelnyman.main.domain.model.BudgetExpense;
 import org.example.axelnyman.main.domain.model.BudgetIncome;
+import org.example.axelnyman.main.domain.model.BudgetSavings;
 import org.example.axelnyman.main.domain.model.BudgetStatus;
 import org.example.axelnyman.main.domain.model.RecurringExpense;
 import org.example.axelnyman.main.shared.exceptions.AccountLinkedToBudgetException;
@@ -546,5 +548,32 @@ public class DomainService implements IDomainService {
 
         // Perform hard delete
         dataService.deleteBudgetExpense(id);
+    }
+
+    @Override
+    @Transactional
+    public BudgetSavingsResponse addSavingsToBudget(UUID budgetId, CreateBudgetSavingsRequest request) {
+        // Get budget and verify it exists and is not deleted
+        Budget budget = dataService.getBudgetById(budgetId)
+                .orElseThrow(() -> new BudgetNotFoundException("Budget not found with id: " + budgetId));
+
+        // Check if budget is unlocked
+        if (budget.getStatus() == BudgetStatus.LOCKED) {
+            throw new BudgetLockedException("Cannot modify locked budget");
+        }
+
+        // Get bank account and verify it exists and is not deleted
+        BankAccount bankAccount = dataService.getBankAccountById(request.bankAccountId())
+                .orElseThrow(() -> new BankAccountNotFoundException("Bank account not found with id: " + request.bankAccountId()));
+
+        if (bankAccount.getDeletedAt() != null) {
+            throw new BankAccountNotFoundException("Bank account not found with id: " + request.bankAccountId());
+        }
+
+        // Create and save budget savings
+        BudgetSavings budgetSavings = BudgetSavingsExtensions.toEntity(request, budgetId);
+        BudgetSavings savedSavings = dataService.saveBudgetSavings(budgetSavings);
+
+        return BudgetSavingsExtensions.toResponse(savedSavings, bankAccount);
     }
 }

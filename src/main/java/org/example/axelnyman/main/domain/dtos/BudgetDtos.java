@@ -132,4 +132,25 @@ public class BudgetDtos {
             LocalDateTime createdAt,
             LocalDateTime updatedAt
     ) {}
+
+    public record CreateBudgetSavingsRequest(
+            @NotBlank(message = "Name is required")
+            String name,
+
+            @NotNull(message = "Amount is required")
+            @Positive(message = "Amount must be positive")
+            BigDecimal amount,
+
+            @NotNull(message = "Bank account ID is required")
+            UUID bankAccountId
+    ) {}
+
+    public record BudgetSavingsResponse(
+            UUID id,
+            UUID budgetId,
+            String name,
+            BigDecimal amount,
+            BankAccountSummary bankAccount,
+            LocalDateTime createdAt
+    ) {}
 }

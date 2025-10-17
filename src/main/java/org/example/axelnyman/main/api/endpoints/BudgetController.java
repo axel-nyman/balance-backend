@@ -77,4 +77,12 @@ public class BudgetController {
         domainService.deleteBudgetExpense(budgetId, id);
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/{budgetId}/savings")
+    public ResponseEntity<BudgetSavingsResponse> addSavingsToBudget(
+            @PathVariable UUID budgetId,
+            @Valid @RequestBody CreateBudgetSavingsRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(domainService.addSavingsToBudget(budgetId, request));
+    }
 }

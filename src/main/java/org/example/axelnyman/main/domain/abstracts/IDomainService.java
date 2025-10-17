@@ -50,4 +50,6 @@ public interface IDomainService {
     BudgetExpenseResponse updateBudgetExpense(UUID budgetId, UUID id, UpdateBudgetExpenseRequest request);
 
     void deleteBudgetExpense(UUID budgetId, UUID id);
+
+    BudgetSavingsResponse addSavingsToBudget(UUID budgetId, CreateBudgetSavingsRequest request);
 }
