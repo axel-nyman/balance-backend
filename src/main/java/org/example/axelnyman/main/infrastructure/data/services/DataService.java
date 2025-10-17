@@ -191,4 +191,9 @@ public class DataService implements IDataService {
     public java.util.Optional<BudgetSavings> getBudgetSavingsById(java.util.UUID id) {
         return budgetSavingsRepository.findById(id);
     }
+
+    @Override
+    public void deleteBudgetSavings(java.util.UUID id) {
+        budgetSavingsRepository.deleteById(id);
+    }
 }

@@ -617,4 +617,30 @@ public class DomainService implements IDomainService {
 
         return BudgetSavingsExtensions.toResponse(updatedSavings, bankAccount);
     }
+
+    @Override
+    @Transactional
+    public void deleteBudgetSavings(UUID budgetId, UUID id) {
+        // Get budget savings and verify it exists
+        BudgetSavings savings = dataService.getBudgetSavingsById(id)
+                .orElseThrow(() -> new org.example.axelnyman.main.shared.exceptions.BudgetSavingsNotFoundException(
+                        "Budget savings not found with id: " + id));
+
+        // Verify savings belongs to the specified budget
+        if (!savings.getBudgetId().equals(budgetId)) {
+            throw new org.example.axelnyman.main.shared.exceptions.BudgetSavingsNotFoundException(
+                    "Budget savings not found with id: " + id);
+        }
+
+        // Get budget and verify it's unlocked
+        Budget budget = dataService.getBudgetById(budgetId)
+                .orElseThrow(() -> new BudgetNotFoundException("Budget not found with id: " + budgetId));
+
+        if (budget.getStatus() == BudgetStatus.LOCKED) {
+            throw new BudgetLockedException("Cannot modify items in locked budget");
+        }
+
+        // Perform hard delete
+        dataService.deleteBudgetSavings(id);
+    }
 }
