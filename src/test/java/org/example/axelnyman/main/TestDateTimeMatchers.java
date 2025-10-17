@@ -21,8 +21,11 @@ public class TestDateTimeMatchers {
      * This matcher is needed because:
      * - Java LocalDateTime supports nanosecond precision (9 decimal places)
      * - PostgreSQL TIMESTAMP stores microsecond precision (6 decimal places)
-     * - When entities are persisted and retrieved, nanoseconds are truncated
-     * - Different environments (local vs CI) may return different precision from LocalDateTime.now()
+     * - PostgreSQL may round nanoseconds to nearest microsecond, while Java truncates
+     * - Different environments (local vs CI) may have different rounding behavior
+     *
+     * The matcher allows timestamps to differ by up to 2 microseconds to account for
+     * rounding differences between Java truncation and PostgreSQL rounding.
      *
      * Example usage:
      * <pre>
@@ -30,12 +33,14 @@ public class TestDateTimeMatchers {
      * </pre>
      *
      * @param expected The expected timestamp string in ISO-8601 format
-     * @return A Hamcrest matcher that compares timestamps with microsecond precision
+     * @return A Hamcrest matcher that compares timestamps with microsecond tolerance
      */
     public static Matcher<String> matchesTimestampIgnoringNanos(String expected) {
         return new TypeSafeMatcher<String>() {
+            private static final long TOLERANCE_MICROS = 2L;
             private LocalDateTime expectedDateTime;
             private LocalDateTime actualDateTime;
+            private long microsecondsDifference;
 
             @Override
             protected boolean matchesSafely(String actual) {
@@ -47,7 +52,11 @@ public class TestDateTimeMatchers {
                     LocalDateTime expectedTruncated = expectedDateTime.truncatedTo(ChronoUnit.MICROS);
                     LocalDateTime actualTruncated = actualDateTime.truncatedTo(ChronoUnit.MICROS);
 
-                    return expectedTruncated.equals(actualTruncated);
+                    // Calculate absolute difference in microseconds
+                    microsecondsDifference = Math.abs(ChronoUnit.MICROS.between(expectedTruncated, actualTruncated));
+
+                    // Allow tolerance of 2 microseconds to account for rounding differences
+                    return microsecondsDifference <= TOLERANCE_MICROS;
                 } catch (Exception e) {
                     return false;
                 }
@@ -57,7 +66,9 @@ public class TestDateTimeMatchers {
             public void describeTo(Description description) {
                 description.appendText("timestamp matching ")
                            .appendValue(expected)
-                           .appendText(" (ignoring nanoseconds beyond microsecond precision)");
+                           .appendText(" (within ")
+                           .appendValue(TOLERANCE_MICROS)
+                           .appendText(" microseconds, ignoring nanoseconds)");
             }
 
             @Override
@@ -68,13 +79,13 @@ public class TestDateTimeMatchers {
                     LocalDateTime expectedTruncated = expectedDateTime.truncatedTo(ChronoUnit.MICROS);
                     LocalDateTime actualTruncated = actualDateTime.truncatedTo(ChronoUnit.MICROS);
 
-                    if (!expectedTruncated.equals(actualTruncated)) {
-                        mismatchDescription.appendText(" (expected with microsecond precision: ")
-                                           .appendValue(expectedTruncated)
-                                           .appendText(", actual with microsecond precision: ")
-                                           .appendValue(actualTruncated)
-                                           .appendText(")");
-                    }
+                    mismatchDescription.appendText(" (expected: ")
+                                       .appendValue(expectedTruncated)
+                                       .appendText(", actual: ")
+                                       .appendValue(actualTruncated)
+                                       .appendText(", difference: ")
+                                       .appendValue(microsecondsDifference)
+                                       .appendText(" microseconds)");
                 }
             }
         };
