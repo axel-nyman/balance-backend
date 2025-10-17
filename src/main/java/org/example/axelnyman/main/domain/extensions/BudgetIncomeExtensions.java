@@ -25,7 +25,8 @@ public final class BudgetIncomeExtensions {
                 income.getName(),
                 income.getAmount(),
                 bankAccountSummary,
-                income.getCreatedAt()
+                income.getCreatedAt(),
+                income.getUpdatedAt()
         );
     }
 

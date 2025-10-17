@@ -375,4 +375,45 @@ public class DomainService implements IDomainService {
 
         return BudgetIncomeExtensions.toResponse(savedIncome, bankAccount);
     }
+
+    @Override
+    @Transactional
+    public BudgetIncomeResponse updateBudgetIncome(UUID budgetId, UUID id, UpdateBudgetIncomeRequest request) {
+        // Get budget income and verify it exists
+        BudgetIncome income = dataService.getBudgetIncomeById(id)
+                .orElseThrow(() -> new org.example.axelnyman.main.shared.exceptions.BudgetIncomeNotFoundException(
+                        "Budget income not found with id: " + id));
+
+        // Verify income belongs to the specified budget
+        if (!income.getBudgetId().equals(budgetId)) {
+            throw new org.example.axelnyman.main.shared.exceptions.BudgetIncomeNotFoundException(
+                    "Budget income not found with id: " + id);
+        }
+
+        // Get budget and verify it's unlocked
+        Budget budget = dataService.getBudgetById(budgetId)
+                .orElseThrow(() -> new BudgetNotFoundException("Budget not found with id: " + budgetId));
+
+        if (budget.getStatus() == BudgetStatus.LOCKED) {
+            throw new BudgetLockedException("Cannot modify items in locked budget");
+        }
+
+        // Get bank account and verify it exists and is not deleted
+        BankAccount bankAccount = dataService.getBankAccountById(request.bankAccountId())
+                .orElseThrow(() -> new BankAccountNotFoundException("Bank account not found with id: " + request.bankAccountId()));
+
+        if (bankAccount.getDeletedAt() != null) {
+            throw new BankAccountNotFoundException("Bank account not found with id: " + request.bankAccountId());
+        }
+
+        // Update fields
+        income.setName(request.name());
+        income.setAmount(request.amount());
+        income.setBankAccountId(request.bankAccountId());
+
+        // Save (updatedAt will be auto-updated by JPA auditing)
+        BudgetIncome updatedIncome = dataService.saveBudgetIncome(income);
+
+        return BudgetIncomeExtensions.toResponse(updatedIncome, bankAccount);
+    }
 }

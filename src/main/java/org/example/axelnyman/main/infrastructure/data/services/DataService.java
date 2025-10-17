@@ -144,4 +144,9 @@ public class DataService implements IDataService {
     public BudgetIncome saveBudgetIncome(BudgetIncome budgetIncome) {
         return budgetIncomeRepository.save(budgetIncome);
     }
+
+    @Override
+    public java.util.Optional<BudgetIncome> getBudgetIncomeById(java.util.UUID id) {
+        return budgetIncomeRepository.findById(id);
+    }
 }

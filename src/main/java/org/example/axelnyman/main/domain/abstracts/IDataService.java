@@ -61,4 +61,6 @@ public interface IDataService {
 
     // Budget Income operations
     BudgetIncome saveBudgetIncome(BudgetIncome budgetIncome);
+
+    Optional<BudgetIncome> getBudgetIncomeById(UUID id);
 }
