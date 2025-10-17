@@ -69,4 +69,12 @@ public class BudgetController {
             @Valid @RequestBody UpdateBudgetExpenseRequest request) {
         return ResponseEntity.ok(domainService.updateBudgetExpense(budgetId, id, request));
     }
+
+    @DeleteMapping("/{budgetId}/expenses/{id}")
+    public ResponseEntity<Void> deleteBudgetExpense(
+            @PathVariable UUID budgetId,
+            @PathVariable UUID id) {
+        domainService.deleteBudgetExpense(budgetId, id);
+        return ResponseEntity.noContent().build();
+    }
 }

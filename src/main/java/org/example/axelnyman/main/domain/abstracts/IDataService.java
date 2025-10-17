@@ -71,4 +71,6 @@ public interface IDataService {
     BudgetExpense saveBudgetExpense(BudgetExpense budgetExpense);
 
     Optional<BudgetExpense> getBudgetExpenseById(UUID id);
+
+    void deleteBudgetExpense(UUID id);
 }
