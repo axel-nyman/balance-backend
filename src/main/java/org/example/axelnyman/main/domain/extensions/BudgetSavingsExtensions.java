@@ -25,7 +25,8 @@ public final class BudgetSavingsExtensions {
                 savings.getName(),
                 savings.getAmount(),
                 bankAccountSummary,
-                savings.getCreatedAt()
+                savings.getCreatedAt(),
+                savings.getUpdatedAt()
         );
     }
 

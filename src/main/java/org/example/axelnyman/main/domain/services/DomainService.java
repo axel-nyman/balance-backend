@@ -576,4 +576,45 @@ public class DomainService implements IDomainService {
 
         return BudgetSavingsExtensions.toResponse(savedSavings, bankAccount);
     }
+
+    @Override
+    @Transactional
+    public BudgetSavingsResponse updateBudgetSavings(UUID budgetId, UUID id, UpdateBudgetSavingsRequest request) {
+        // Get budget savings and verify it exists
+        BudgetSavings savings = dataService.getBudgetSavingsById(id)
+                .orElseThrow(() -> new org.example.axelnyman.main.shared.exceptions.BudgetSavingsNotFoundException(
+                        "Budget savings not found with id: " + id));
+
+        // Verify savings belongs to the specified budget
+        if (!savings.getBudgetId().equals(budgetId)) {
+            throw new org.example.axelnyman.main.shared.exceptions.BudgetSavingsNotFoundException(
+                    "Budget savings not found with id: " + id);
+        }
+
+        // Get budget and verify it's unlocked
+        Budget budget = dataService.getBudgetById(budgetId)
+                .orElseThrow(() -> new BudgetNotFoundException("Budget not found with id: " + budgetId));
+
+        if (budget.getStatus() == BudgetStatus.LOCKED) {
+            throw new BudgetLockedException("Cannot modify items in locked budget");
+        }
+
+        // Get bank account and verify it exists and is not deleted
+        BankAccount bankAccount = dataService.getBankAccountById(request.bankAccountId())
+                .orElseThrow(() -> new BankAccountNotFoundException("Bank account not found with id: " + request.bankAccountId()));
+
+        if (bankAccount.getDeletedAt() != null) {
+            throw new BankAccountNotFoundException("Bank account not found with id: " + request.bankAccountId());
+        }
+
+        // Update fields
+        savings.setName(request.name());
+        savings.setAmount(request.amount());
+        savings.setBankAccountId(request.bankAccountId());
+
+        // Save (updatedAt will be auto-updated by JPA auditing)
+        BudgetSavings updatedSavings = dataService.saveBudgetSavings(savings);
+
+        return BudgetSavingsExtensions.toResponse(updatedSavings, bankAccount);
+    }
 }

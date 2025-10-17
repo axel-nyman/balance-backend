@@ -77,4 +77,6 @@ public interface IDataService {
 
     // Budget Savings operations
     BudgetSavings saveBudgetSavings(BudgetSavings budgetSavings);
+
+    Optional<BudgetSavings> getBudgetSavingsById(UUID id);
 }

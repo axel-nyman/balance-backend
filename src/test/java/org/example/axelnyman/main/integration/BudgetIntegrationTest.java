@@ -22,6 +22,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.example.axelnyman.main.TestDateTimeMatchers.matchesTimestampIgnoringNanos;
 import static org.hamcrest.Matchers.hasSize;
@@ -3382,6 +3383,475 @@ public class BudgetIntegrationTest {
         var deletedAccount = bankAccountRepository.findById(bankAccount.getId());
         assert deletedAccount.isPresent();
         assert deletedAccount.get().getDeletedAt() != null;
+    }
+
+    // ============================================
+    // Update Savings in Budget Tests (Story 19)
+    // ============================================
+
+    @Test
+    void shouldUpdateSavingsInUnlockedBudget() throws Exception {
+        // Given - budget with savings
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount1 = createBankAccountEntity("Account 1", "First", new BigDecimal("1000.00"));
+        var bankAccount2 = createBankAccountEntity("Account 2", "Second", new BigDecimal("2000.00"));
+
+        Map<String, Object> createRequest = new HashMap<>();
+        createRequest.put("name", "Original Savings");
+        createRequest.put("amount", new BigDecimal("200.00"));
+        createRequest.put("bankAccountId", bankAccount1.getId().toString());
+
+        String createResponse = mockMvc.perform(post("/api/budgets/" + budget.getId() + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String savingsId = objectMapper.readTree(createResponse).get("id").asText();
+
+        Map<String, Object> updateRequest = new HashMap<>();
+        updateRequest.put("name", "Updated Savings");
+        updateRequest.put("amount", new BigDecimal("350.00"));
+        updateRequest.put("bankAccountId", bankAccount2.getId().toString());
+
+        // When & Then
+        mockMvc.perform(put("/api/budgets/" + budget.getId() + "/savings/" + savingsId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id", is(savingsId)))
+                .andExpect(jsonPath("$.budgetId", is(budget.getId().toString())))
+                .andExpect(jsonPath("$.name", is("Updated Savings")))
+                .andExpect(jsonPath("$.amount", is(350.00)))
+                .andExpect(jsonPath("$.bankAccount.id", is(bankAccount2.getId().toString())))
+                .andExpect(jsonPath("$.bankAccount.name", is("Account 2")))
+                .andExpect(jsonPath("$.createdAt").exists())
+                .andExpect(jsonPath("$.updatedAt").exists());
+    }
+
+    @Test
+    void shouldUpdateOnlySavingsName() throws Exception {
+        // Given - budget with savings
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> createRequest = new HashMap<>();
+        createRequest.put("name", "Original");
+        createRequest.put("amount", new BigDecimal("200.00"));
+        createRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        String createResponse = mockMvc.perform(post("/api/budgets/" + budget.getId() + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String savingsId = objectMapper.readTree(createResponse).get("id").asText();
+
+        Map<String, Object> updateRequest = new HashMap<>();
+        updateRequest.put("name", "Updated Name");
+        updateRequest.put("amount", new BigDecimal("200.00"));
+        updateRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        // When & Then
+        mockMvc.perform(put("/api/budgets/" + budget.getId() + "/savings/" + savingsId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name", is("Updated Name")))
+                .andExpect(jsonPath("$.amount", is(200.00)));
+    }
+
+    @Test
+    void shouldUpdateOnlySavingsAmount() throws Exception {
+        // Given - budget with savings
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> createRequest = new HashMap<>();
+        createRequest.put("name", "Emergency Fund");
+        createRequest.put("amount", new BigDecimal("200.00"));
+        createRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        String createResponse = mockMvc.perform(post("/api/budgets/" + budget.getId() + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String savingsId = objectMapper.readTree(createResponse).get("id").asText();
+
+        Map<String, Object> updateRequest = new HashMap<>();
+        updateRequest.put("name", "Emergency Fund");
+        updateRequest.put("amount", new BigDecimal("500.00"));
+        updateRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        // When & Then
+        mockMvc.perform(put("/api/budgets/" + budget.getId() + "/savings/" + savingsId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name", is("Emergency Fund")))
+                .andExpect(jsonPath("$.amount", is(500.00)));
+    }
+
+    @Test
+    void shouldUpdateOnlySavingsBankAccount() throws Exception {
+        // Given - budget with savings
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount1 = createBankAccountEntity("Account 1", "Test 1", new BigDecimal("1000.00"));
+        var bankAccount2 = createBankAccountEntity("Account 2", "Test 2", new BigDecimal("2000.00"));
+
+        Map<String, Object> createRequest = new HashMap<>();
+        createRequest.put("name", "Vacation Fund");
+        createRequest.put("amount", new BigDecimal("300.00"));
+        createRequest.put("bankAccountId", bankAccount1.getId().toString());
+
+        String createResponse = mockMvc.perform(post("/api/budgets/" + budget.getId() + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String savingsId = objectMapper.readTree(createResponse).get("id").asText();
+
+        Map<String, Object> updateRequest = new HashMap<>();
+        updateRequest.put("name", "Vacation Fund");
+        updateRequest.put("amount", new BigDecimal("300.00"));
+        updateRequest.put("bankAccountId", bankAccount2.getId().toString());
+
+        // When & Then
+        mockMvc.perform(put("/api/budgets/" + budget.getId() + "/savings/" + savingsId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.bankAccount.id", is(bankAccount2.getId().toString())))
+                .andExpect(jsonPath("$.bankAccount.name", is("Account 2")));
+    }
+
+    @Test
+    void shouldReturnUpdatedTimestampAfterSavingsUpdate() throws Exception {
+        // Given - budget with savings
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> createRequest = new HashMap<>();
+        createRequest.put("name", "Original");
+        createRequest.put("amount", new BigDecimal("100.00"));
+        createRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        String createResponse = mockMvc.perform(post("/api/budgets/" + budget.getId() + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String savingsId = objectMapper.readTree(createResponse).get("id").asText();
+        String originalCreatedAt = objectMapper.readTree(createResponse).get("createdAt").asText();
+
+        Thread.sleep(100); // Ensure timestamp difference
+
+        Map<String, Object> updateRequest = new HashMap<>();
+        updateRequest.put("name", "Updated");
+        updateRequest.put("amount", new BigDecimal("150.00"));
+        updateRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        // When & Then
+        mockMvc.perform(put("/api/budgets/" + budget.getId() + "/savings/" + savingsId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.createdAt", matchesTimestampIgnoringNanos(originalCreatedAt)))
+                .andExpect(jsonPath("$.updatedAt").exists())
+                .andExpect(jsonPath("$.updatedAt").isNotEmpty());
+    }
+
+    @Test
+    void shouldRejectUpdateForLockedBudgetSavings() throws Exception {
+        // Given - locked budget with savings
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> createRequest = new HashMap<>();
+        createRequest.put("name", "Original");
+        createRequest.put("amount", new BigDecimal("200.00"));
+        createRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        String createResponse = mockMvc.perform(post("/api/budgets/" + budget.getId() + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String savingsId = objectMapper.readTree(createResponse).get("id").asText();
+
+        // Lock budget
+        budget.setStatus(org.example.axelnyman.main.domain.model.BudgetStatus.LOCKED);
+        budgetRepository.save(budget);
+
+        Map<String, Object> updateRequest = new HashMap<>();
+        updateRequest.put("name", "Updated");
+        updateRequest.put("amount", new BigDecimal("300.00"));
+        updateRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        // When & Then
+        mockMvc.perform(put("/api/budgets/" + budget.getId() + "/savings/" + savingsId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error", is("Cannot modify items in locked budget")));
+    }
+
+    @Test
+    void shouldRejectUpdateForNonExistentSavings() throws Exception {
+        // Given - budget without savings
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        UUID nonExistentId = UUID.randomUUID();
+
+        Map<String, Object> updateRequest = new HashMap<>();
+        updateRequest.put("name", "Test");
+        updateRequest.put("amount", new BigDecimal("100.00"));
+        updateRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        // When & Then
+        mockMvc.perform(put("/api/budgets/" + budget.getId() + "/savings/" + nonExistentId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error", is("Budget savings not found with id: " + nonExistentId)));
+    }
+
+    @Test
+    void shouldRejectUpdateForNonExistentBudgetSavings() throws Exception {
+        // Given - two budgets, savings in one
+        createBudget(6, 2024);
+        var budget1 = budgetRepository.findAll().get(0);
+        budget1.setStatus(org.example.axelnyman.main.domain.model.BudgetStatus.LOCKED);
+        budgetRepository.save(budget1);
+
+        createBudget(7, 2024);
+        var budget2 = budgetRepository.findAll().stream()
+                .filter(b -> b.getMonth() == 7).findFirst().get();
+
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> createRequest = new HashMap<>();
+        createRequest.put("name", "Savings");
+        createRequest.put("amount", new BigDecimal("100.00"));
+        createRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        String createResponse = mockMvc.perform(post("/api/budgets/" + budget2.getId() + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String savingsId = objectMapper.readTree(createResponse).get("id").asText();
+
+        Map<String, Object> updateRequest = new HashMap<>();
+        updateRequest.put("name", "Updated");
+        updateRequest.put("amount", new BigDecimal("200.00"));
+        updateRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        // When & Then - try to update with wrong budget ID
+        mockMvc.perform(put("/api/budgets/" + budget1.getId() + "/savings/" + savingsId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error", is("Budget savings not found with id: " + savingsId)));
+    }
+
+    @Test
+    void shouldRejectUpdateWithNonExistentBankAccount() throws Exception {
+        // Given - budget with savings
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> createRequest = new HashMap<>();
+        createRequest.put("name", "Savings");
+        createRequest.put("amount", new BigDecimal("100.00"));
+        createRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        String createResponse = mockMvc.perform(post("/api/budgets/" + budget.getId() + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String savingsId = objectMapper.readTree(createResponse).get("id").asText();
+
+        UUID nonExistentBankAccountId = UUID.randomUUID();
+
+        Map<String, Object> updateRequest = new HashMap<>();
+        updateRequest.put("name", "Updated");
+        updateRequest.put("amount", new BigDecimal("200.00"));
+        updateRequest.put("bankAccountId", nonExistentBankAccountId.toString());
+
+        // When & Then
+        mockMvc.perform(put("/api/budgets/" + budget.getId() + "/savings/" + savingsId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error", is("Bank account not found with id: " + nonExistentBankAccountId)));
+    }
+
+    @Test
+    void shouldRejectUpdateWithDeletedBankAccount() throws Exception {
+        // Given - budget with savings
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount1 = createBankAccountEntity("Account 1", "Test", new BigDecimal("1000.00"));
+        var bankAccount2 = createBankAccountEntity("Account 2", "Test", new BigDecimal("2000.00"));
+
+        Map<String, Object> createRequest = new HashMap<>();
+        createRequest.put("name", "Savings");
+        createRequest.put("amount", new BigDecimal("100.00"));
+        createRequest.put("bankAccountId", bankAccount1.getId().toString());
+
+        String createResponse = mockMvc.perform(post("/api/budgets/" + budget.getId() + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String savingsId = objectMapper.readTree(createResponse).get("id").asText();
+
+        // Lock budget and soft-delete bank account 2
+        budget.setStatus(org.example.axelnyman.main.domain.model.BudgetStatus.LOCKED);
+        budgetRepository.save(budget);
+        mockMvc.perform(delete("/api/bank-accounts/" + bankAccount2.getId()))
+                .andExpect(status().isNoContent());
+
+        // Unlock budget
+        budget.setStatus(org.example.axelnyman.main.domain.model.BudgetStatus.UNLOCKED);
+        budgetRepository.save(budget);
+
+        Map<String, Object> updateRequest = new HashMap<>();
+        updateRequest.put("name", "Updated");
+        updateRequest.put("amount", new BigDecimal("200.00"));
+        updateRequest.put("bankAccountId", bankAccount2.getId().toString());
+
+        // When & Then - should reject deleted account
+        mockMvc.perform(put("/api/budgets/" + budget.getId() + "/savings/" + savingsId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error", is("Bank account not found with id: " + bankAccount2.getId())));
+    }
+
+    @Test
+    void shouldRejectUpdateWithNegativeAmount() throws Exception {
+        // Given - budget with savings
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> createRequest = new HashMap<>();
+        createRequest.put("name", "Savings");
+        createRequest.put("amount", new BigDecimal("100.00"));
+        createRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        String createResponse = mockMvc.perform(post("/api/budgets/" + budget.getId() + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String savingsId = objectMapper.readTree(createResponse).get("id").asText();
+
+        Map<String, Object> updateRequest = new HashMap<>();
+        updateRequest.put("name", "Savings");
+        updateRequest.put("amount", new BigDecimal("-50.00"));
+        updateRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        // When & Then
+        mockMvc.perform(put("/api/budgets/" + budget.getId() + "/savings/" + savingsId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    void shouldRejectUpdateWithBlankName() throws Exception {
+        // Given - budget with savings
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("1000.00"));
+
+        Map<String, Object> createRequest = new HashMap<>();
+        createRequest.put("name", "Savings");
+        createRequest.put("amount", new BigDecimal("100.00"));
+        createRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        String createResponse = mockMvc.perform(post("/api/budgets/" + budget.getId() + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String savingsId = objectMapper.readTree(createResponse).get("id").asText();
+
+        Map<String, Object> updateRequest = new HashMap<>();
+        updateRequest.put("name", "");
+        updateRequest.put("amount", new BigDecimal("100.00"));
+        updateRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        // When & Then
+        mockMvc.perform(put("/api/budgets/" + budget.getId() + "/savings/" + savingsId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    void shouldUpdateSavingsAmountSuccessfully() throws Exception {
+        // Given - budget with savings
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        var bankAccount = createBankAccountEntity("Account", "Test", new BigDecimal("10000.00"));
+
+        Map<String, Object> createRequest = new HashMap<>();
+        createRequest.put("name", "Emergency Fund");
+        createRequest.put("amount", new BigDecimal("500.00"));
+        createRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        String createResponse = mockMvc.perform(post("/api/budgets/" + budget.getId() + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String savingsId = objectMapper.readTree(createResponse).get("id").asText();
+        BigDecimal originalAmount = objectMapper.readTree(createResponse).get("amount").decimalValue();
+
+        // When - update savings amount
+        Map<String, Object> updateRequest = new HashMap<>();
+        updateRequest.put("name", "Emergency Fund");
+        updateRequest.put("amount", new BigDecimal("1000.00"));
+        updateRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        // Then - verify update was successful
+        mockMvc.perform(put("/api/budgets/" + budget.getId() + "/savings/" + savingsId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id", is(savingsId)))
+                .andExpect(jsonPath("$.amount", is(1000.00)));
+
+        // Verify the amount was actually changed
+        assert !new BigDecimal("1000.00").equals(originalAmount);
     }
 
     // Helper method to create budget request
