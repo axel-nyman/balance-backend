@@ -478,4 +478,47 @@ public class DomainService implements IDomainService {
 
         return BudgetExpenseExtensions.toResponse(savedExpense, bankAccount);
     }
+
+    @Override
+    @Transactional
+    public BudgetExpenseResponse updateBudgetExpense(UUID budgetId, UUID id, UpdateBudgetExpenseRequest request) {
+        // Get budget expense and verify it exists
+        BudgetExpense expense = dataService.getBudgetExpenseById(id)
+                .orElseThrow(() -> new org.example.axelnyman.main.shared.exceptions.BudgetExpenseNotFoundException(
+                        "Budget expense not found with id: " + id));
+
+        // Verify expense belongs to the specified budget
+        if (!expense.getBudgetId().equals(budgetId)) {
+            throw new org.example.axelnyman.main.shared.exceptions.BudgetExpenseNotFoundException(
+                    "Budget expense not found with id: " + id);
+        }
+
+        // Get budget and verify it's unlocked
+        Budget budget = dataService.getBudgetById(budgetId)
+                .orElseThrow(() -> new BudgetNotFoundException("Budget not found with id: " + budgetId));
+
+        if (budget.getStatus() == BudgetStatus.LOCKED) {
+            throw new BudgetLockedException("Cannot modify items in locked budget");
+        }
+
+        // Get bank account and verify it exists and is not deleted
+        BankAccount bankAccount = dataService.getBankAccountById(request.bankAccountId())
+                .orElseThrow(() -> new BankAccountNotFoundException("Bank account not found with id: " + request.bankAccountId()));
+
+        if (bankAccount.getDeletedAt() != null) {
+            throw new BankAccountNotFoundException("Bank account not found with id: " + request.bankAccountId());
+        }
+
+        // Update fields
+        expense.setName(request.name());
+        expense.setAmount(request.amount());
+        expense.setBankAccountId(request.bankAccountId());
+        expense.setDeductedAt(request.deductedAt());
+        expense.setIsManual(request.isManual());
+
+        // Save (updatedAt will be auto-updated by JPA auditing)
+        BudgetExpense updatedExpense = dataService.saveBudgetExpense(expense);
+
+        return BudgetExpenseExtensions.toResponse(updatedExpense, bankAccount);
+    }
 }

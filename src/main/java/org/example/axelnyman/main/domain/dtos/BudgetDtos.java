@@ -103,6 +103,23 @@ public class BudgetDtos {
             Boolean isManual
     ) {}
 
+    public record UpdateBudgetExpenseRequest(
+            @NotBlank(message = "Name is required")
+            String name,
+
+            @NotNull(message = "Amount is required")
+            @Positive(message = "Amount must be positive")
+            BigDecimal amount,
+
+            @NotNull(message = "Bank account ID is required")
+            UUID bankAccountId,
+
+            java.time.LocalDate deductedAt,
+
+            @NotNull(message = "isManual is required")
+            Boolean isManual
+    ) {}
+
     public record BudgetExpenseResponse(
             UUID id,
             UUID budgetId,
@@ -112,6 +129,7 @@ public class BudgetDtos {
             UUID recurringExpenseId,
             java.time.LocalDate deductedAt,
             Boolean isManual,
-            LocalDateTime createdAt
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt
     ) {}
 }

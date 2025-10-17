@@ -61,4 +61,12 @@ public class BudgetController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(domainService.addExpenseToBudget(budgetId, request));
     }
+
+    @PutMapping("/{budgetId}/expenses/{id}")
+    public ResponseEntity<BudgetExpenseResponse> updateBudgetExpense(
+            @PathVariable UUID budgetId,
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateBudgetExpenseRequest request) {
+        return ResponseEntity.ok(domainService.updateBudgetExpense(budgetId, id, request));
+    }
 }

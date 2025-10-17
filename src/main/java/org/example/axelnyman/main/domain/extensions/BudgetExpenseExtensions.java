@@ -28,7 +28,8 @@ public final class BudgetExpenseExtensions {
                 expense.getRecurringExpenseId(),
                 expense.getDeductedAt(),
                 expense.getIsManual(),
-                expense.getCreatedAt()
+                expense.getCreatedAt(),
+                expense.getUpdatedAt()
         );
     }
 

@@ -165,4 +165,9 @@ public class DataService implements IDataService {
     public BudgetExpense saveBudgetExpense(BudgetExpense budgetExpense) {
         return budgetExpenseRepository.save(budgetExpense);
     }
+
+    @Override
+    public java.util.Optional<BudgetExpense> getBudgetExpenseById(java.util.UUID id) {
+        return budgetExpenseRepository.findById(id);
+    }
 }
