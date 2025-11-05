@@ -605,6 +605,237 @@ public class BudgetIntegrationTest {
     }
 
     // ============================================
+    // View Budget Details Tests (Story 21)
+    // ============================================
+
+    @Test
+    void shouldGetBudgetDetailsById() throws Exception {
+        // Given - create budget with income, expenses, and savings
+        createBudget(6, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        UUID budgetId = budget.getId();
+
+        var bankAccount1 = createBankAccountEntity("Checking", "Main account", new BigDecimal("1000.00"));
+        var bankAccount2 = createBankAccountEntity("Savings", "Savings account", new BigDecimal("5000.00"));
+
+        // Add income
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("name", "Salary");
+        incomeRequest.put("amount", "3000.00");
+        incomeRequest.put("bankAccountId", bankAccount1.getId().toString());
+
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isCreated());
+
+        // Add expense
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("name", "Rent");
+        expenseRequest.put("amount", "1500.00");
+        expenseRequest.put("bankAccountId", bankAccount1.getId().toString());
+        expenseRequest.put("deductedAt", "2024-06-01");
+        expenseRequest.put("isManual", true);
+
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isCreated());
+
+        // Add savings
+        Map<String, Object> savingsRequest = new HashMap<>();
+        savingsRequest.put("name", "Emergency Fund");
+        savingsRequest.put("amount", "500.00");
+        savingsRequest.put("bankAccountId", bankAccount2.getId().toString());
+
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(savingsRequest)))
+                .andExpect(status().isCreated());
+
+        // When - get budget details
+        mockMvc.perform(get("/api/budgets/" + budgetId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id", is(budgetId.toString())))
+                .andExpect(jsonPath("$.month", is(6)))
+                .andExpect(jsonPath("$.year", is(2024)))
+                .andExpect(jsonPath("$.status", is("UNLOCKED")))
+                .andExpect(jsonPath("$.createdAt").exists())
+                .andExpect(jsonPath("$.lockedAt").doesNotExist())
+                // Verify income
+                .andExpect(jsonPath("$.income", hasSize(1)))
+                .andExpect(jsonPath("$.income[0].name", is("Salary")))
+                .andExpect(jsonPath("$.income[0].amount", is(3000.00)))
+                .andExpect(jsonPath("$.income[0].bankAccount.id", is(bankAccount1.getId().toString())))
+                .andExpect(jsonPath("$.income[0].bankAccount.name", is("Checking")))
+                // Verify expenses
+                .andExpect(jsonPath("$.expenses", hasSize(1)))
+                .andExpect(jsonPath("$.expenses[0].name", is("Rent")))
+                .andExpect(jsonPath("$.expenses[0].amount", is(1500.00)))
+                .andExpect(jsonPath("$.expenses[0].bankAccount.id", is(bankAccount1.getId().toString())))
+                .andExpect(jsonPath("$.expenses[0].bankAccount.name", is("Checking")))
+                .andExpect(jsonPath("$.expenses[0].deductedAt", is("2024-06-01")))
+                .andExpect(jsonPath("$.expenses[0].isManual", is(true)))
+                .andExpect(jsonPath("$.expenses[0].recurringExpenseId").doesNotExist())
+                // Verify savings
+                .andExpect(jsonPath("$.savings", hasSize(1)))
+                .andExpect(jsonPath("$.savings[0].name", is("Emergency Fund")))
+                .andExpect(jsonPath("$.savings[0].amount", is(500.00)))
+                .andExpect(jsonPath("$.savings[0].bankAccount.id", is(bankAccount2.getId().toString())))
+                .andExpect(jsonPath("$.savings[0].bankAccount.name", is("Savings")))
+                // Verify totals: 3000 income - 1500 expenses - 500 savings = 1000 balance
+                .andExpect(jsonPath("$.totals.income", is(3000.00)))
+                .andExpect(jsonPath("$.totals.expenses", is(1500.00)))
+                .andExpect(jsonPath("$.totals.savings", is(500.00)))
+                .andExpect(jsonPath("$.totals.balance", is(1000.00)));
+    }
+
+    @Test
+    void shouldGetBudgetDetailsWithMultipleItems() throws Exception {
+        // Given - create budget with multiple items of each type
+        createBudget(7, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        UUID budgetId = budget.getId();
+
+        var bankAccount = createBankAccountEntity("Main Account", "Primary", new BigDecimal("10000.00"));
+        var recurringExpense = createRecurringExpenseEntity("Netflix", new BigDecimal("15.99"));
+
+        // Add multiple income items
+        for (int i = 1; i <= 3; i++) {
+            Map<String, Object> incomeRequest = new HashMap<>();
+            incomeRequest.put("name", "Income " + i);
+            incomeRequest.put("amount", "1000.00");
+            incomeRequest.put("bankAccountId", bankAccount.getId().toString());
+
+            mockMvc.perform(post("/api/budgets/" + budgetId + "/income")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(incomeRequest)))
+                    .andExpect(status().isCreated());
+        }
+
+        // Add multiple expenses (manual and recurring)
+        Map<String, Object> manualExpense = new HashMap<>();
+        manualExpense.put("name", "Groceries");
+        manualExpense.put("amount", "200.00");
+        manualExpense.put("bankAccountId", bankAccount.getId().toString());
+        manualExpense.put("deductedAt", "2024-07-15");
+        manualExpense.put("isManual", true);
+
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(manualExpense)))
+                .andExpect(status().isCreated());
+
+        Map<String, Object> recurringExpenseReq = new HashMap<>();
+        recurringExpenseReq.put("name", "Netflix Subscription");
+        recurringExpenseReq.put("amount", "15.99");
+        recurringExpenseReq.put("bankAccountId", bankAccount.getId().toString());
+        recurringExpenseReq.put("recurringExpenseId", recurringExpense.getId().toString());
+        recurringExpenseReq.put("deductedAt", "2024-07-01");
+        recurringExpenseReq.put("isManual", false);
+
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(recurringExpenseReq)))
+                .andExpect(status().isCreated());
+
+        // Add multiple savings
+        for (int i = 1; i <= 2; i++) {
+            Map<String, Object> savingsRequest = new HashMap<>();
+            savingsRequest.put("name", "Savings Goal " + i);
+            savingsRequest.put("amount", "300.00");
+            savingsRequest.put("bankAccountId", bankAccount.getId().toString());
+
+            mockMvc.perform(post("/api/budgets/" + budgetId + "/savings")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(savingsRequest)))
+                    .andExpect(status().isCreated());
+        }
+
+        // When & Then
+        mockMvc.perform(get("/api/budgets/" + budgetId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.income", hasSize(3)))
+                .andExpect(jsonPath("$.expenses", hasSize(2)))
+                .andExpect(jsonPath("$.savings", hasSize(2)))
+                // Verify recurring expense has recurringExpenseId
+                .andExpect(jsonPath("$.expenses[?(@.name == 'Netflix Subscription')].recurringExpenseId",
+                        hasSize(1)))
+                // Verify totals: 3000 income - 215.99 expenses - 600 savings = 2184.01 balance
+                .andExpect(jsonPath("$.totals.income", is(3000.00)))
+                .andExpect(jsonPath("$.totals.expenses", is(215.99)))
+                .andExpect(jsonPath("$.totals.savings", is(600.00)))
+                .andExpect(jsonPath("$.totals.balance", is(2184.01)));
+    }
+
+    @Test
+    void shouldGetBudgetDetailsWhenNoItems() throws Exception {
+        // Given - budget without any items
+        createBudget(8, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        UUID budgetId = budget.getId();
+
+        // When & Then
+        mockMvc.perform(get("/api/budgets/" + budgetId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id", is(budgetId.toString())))
+                .andExpect(jsonPath("$.month", is(8)))
+                .andExpect(jsonPath("$.year", is(2024)))
+                .andExpect(jsonPath("$.income", hasSize(0)))
+                .andExpect(jsonPath("$.expenses", hasSize(0)))
+                .andExpect(jsonPath("$.savings", hasSize(0)))
+                .andExpect(jsonPath("$.totals.income", is(0)))
+                .andExpect(jsonPath("$.totals.expenses", is(0)))
+                .andExpect(jsonPath("$.totals.savings", is(0)))
+                .andExpect(jsonPath("$.totals.balance", is(0)));
+    }
+
+    @Test
+    void shouldGetBudgetDetailsWithLockedBudget() throws Exception {
+        // Given - locked budget with items
+        createBudget(9, 2024);
+        var budget = budgetRepository.findAll().get(0);
+        UUID budgetId = budget.getId();
+
+        var bankAccount = createBankAccountEntity("Account", "Desc", new BigDecimal("1000.00"));
+
+        // Add income to budget before locking
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("name", "Monthly Income");
+        incomeRequest.put("amount", "2500.00");
+        incomeRequest.put("bankAccountId", bankAccount.getId().toString());
+
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isCreated());
+
+        // Lock budget
+        budget.setStatus(org.example.axelnyman.main.domain.model.BudgetStatus.LOCKED);
+        budget.setLockedAt(java.time.LocalDateTime.now());
+        budgetRepository.save(budget);
+
+        // When & Then
+        mockMvc.perform(get("/api/budgets/" + budgetId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status", is("LOCKED")))
+                .andExpect(jsonPath("$.lockedAt").exists())
+                .andExpect(jsonPath("$.income", hasSize(1)))
+                .andExpect(jsonPath("$.totals.income", is(2500.00)));
+    }
+
+    @Test
+    void shouldReturn404WhenBudgetNotFound() throws Exception {
+        // Given - non-existent budget ID
+        UUID nonExistentId = UUID.randomUUID();
+
+        // When & Then
+        mockMvc.perform(get("/api/budgets/" + nonExistentId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    // ============================================
     // Add Income to Budget Tests (Story 12)
     // ============================================
 

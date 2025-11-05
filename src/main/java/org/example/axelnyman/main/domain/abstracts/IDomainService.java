@@ -39,6 +39,8 @@ public interface IDomainService {
 
     BudgetListResponse getAllBudgets();
 
+    BudgetDetailResponse getBudgetDetails(UUID id);
+
     BudgetIncomeResponse addIncomeToBudget(UUID budgetId, CreateBudgetIncomeRequest request);
 
     BudgetIncomeResponse updateBudgetIncome(UUID budgetId, UUID id, UpdateBudgetIncomeRequest request);

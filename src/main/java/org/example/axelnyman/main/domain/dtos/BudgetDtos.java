@@ -166,4 +166,50 @@ public class BudgetDtos {
             @NotNull(message = "Bank account ID is required")
             UUID bankAccountId
     ) {}
+
+    // ============================================
+    // Budget Detail View DTOs (Story 21)
+    // ============================================
+
+    public record BankAccountSummarySimple(
+            UUID id,
+            String name
+    ) {}
+
+    public record BudgetDetailIncomeResponse(
+            UUID id,
+            String name,
+            BigDecimal amount,
+            BankAccountSummarySimple bankAccount
+    ) {}
+
+    public record BudgetDetailExpenseResponse(
+            UUID id,
+            String name,
+            BigDecimal amount,
+            BankAccountSummarySimple bankAccount,
+            UUID recurringExpenseId,
+            java.time.LocalDate deductedAt,
+            Boolean isManual
+    ) {}
+
+    public record BudgetDetailSavingsResponse(
+            UUID id,
+            String name,
+            BigDecimal amount,
+            BankAccountSummarySimple bankAccount
+    ) {}
+
+    public record BudgetDetailResponse(
+            UUID id,
+            Integer month,
+            Integer year,
+            BudgetStatus status,
+            LocalDateTime createdAt,
+            LocalDateTime lockedAt,
+            java.util.List<BudgetDetailIncomeResponse> income,
+            java.util.List<BudgetDetailExpenseResponse> expenses,
+            java.util.List<BudgetDetailSavingsResponse> savings,
+            BudgetTotalsResponse totals
+    ) {}
 }

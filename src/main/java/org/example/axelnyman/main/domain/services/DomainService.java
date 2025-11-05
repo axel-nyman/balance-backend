@@ -354,6 +354,18 @@ public class DomainService implements IDomainService {
     }
 
     @Override
+    public BudgetDetailResponse getBudgetDetails(UUID id) {
+        Budget budget = dataService.getBudgetById(id)
+                .orElseThrow(() -> new BudgetNotFoundException("Budget not found with id: " + id));
+
+        List<BudgetIncome> incomeList = dataService.getBudgetIncomeByBudgetId(id);
+        List<BudgetExpense> expensesList = dataService.getBudgetExpensesByBudgetId(id);
+        List<BudgetSavings> savingsList = dataService.getBudgetSavingsByBudgetId(id);
+
+        return BudgetExtensions.toDetailResponse(budget, incomeList, expensesList, savingsList);
+    }
+
+    @Override
     @Transactional
     public BudgetIncomeResponse addIncomeToBudget(UUID budgetId, CreateBudgetIncomeRequest request) {
         // Get budget and verify it exists and is not deleted

@@ -81,4 +81,11 @@ public interface IDataService {
     Optional<BudgetSavings> getBudgetSavingsById(UUID id);
 
     void deleteBudgetSavings(UUID id);
+
+    // Budget Detail View operations (Story 21)
+    List<BudgetIncome> getBudgetIncomeByBudgetId(UUID budgetId);
+
+    List<BudgetExpense> getBudgetExpensesByBudgetId(UUID budgetId);
+
+    List<BudgetSavings> getBudgetSavingsByBudgetId(UUID budgetId);
 }

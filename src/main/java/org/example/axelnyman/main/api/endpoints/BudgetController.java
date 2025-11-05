@@ -30,6 +30,11 @@ public class BudgetController {
         return ResponseEntity.ok(domainService.getAllBudgets());
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<BudgetDetailResponse> getBudgetDetails(@PathVariable UUID id) {
+        return ResponseEntity.ok(domainService.getBudgetDetails(id));
+    }
+
     @PostMapping("/{budgetId}/income")
     public ResponseEntity<BudgetIncomeResponse> addIncomeToBudget(
             @PathVariable UUID budgetId,
