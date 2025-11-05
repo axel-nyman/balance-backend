@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -18,6 +19,9 @@ public interface BudgetExpenseRepository extends JpaRepository<BudgetExpense, UU
 
     @Query("SELECT be FROM BudgetExpense be LEFT JOIN FETCH be.bankAccount WHERE be.budgetId = :budgetId")
     List<BudgetExpense> findAllByBudgetIdWithBankAccount(@Param("budgetId") UUID budgetId);
+
+    @Query("SELECT COALESCE(SUM(be.amount), 0) FROM BudgetExpense be WHERE be.budgetId = :budgetId")
+    BigDecimal sumAmountByBudgetId(@Param("budgetId") UUID budgetId);
 
     void deleteByBudgetId(UUID budgetId);
 }

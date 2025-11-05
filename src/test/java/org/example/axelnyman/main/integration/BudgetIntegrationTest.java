@@ -4512,6 +4512,446 @@ public class BudgetIntegrationTest {
                 .andExpect(jsonPath("$.error", is("Budget not found")));
     }
 
+    // Story 24: Lock Budget Tests
+
+    @Test
+    void shouldLockBudgetWhenBalanceIsZero() throws Exception {
+        // Given - Create budget with balanced income, expenses, and savings
+        Map<String, Object> budgetRequest = createBudgetRequest(6, 2024);
+        String budgetResponse = mockMvc.perform(post("/api/budgets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(budgetRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String budgetId = objectMapper.readTree(budgetResponse).get("id").asText();
+
+        // Create bank account
+        org.example.axelnyman.main.domain.model.BankAccount account = createBankAccountEntity("Checking", "Main account", new BigDecimal("5000.00"));
+
+        // Add income: 3000.00
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("bankAccountId", account.getId().toString());
+        incomeRequest.put("name", "Salary");
+        incomeRequest.put("amount", 3000.00);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isCreated());
+
+        // Add expense: 2000.00
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("bankAccountId", account.getId().toString());
+        expenseRequest.put("name", "Rent");
+        expenseRequest.put("amount", 2000.00);
+        expenseRequest.put("isManual", true);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isCreated());
+
+        // Add savings: 1000.00
+        Map<String, Object> savingsRequest = new HashMap<>();
+        savingsRequest.put("bankAccountId", account.getId().toString());
+        savingsRequest.put("name", "Emergency Fund");
+        savingsRequest.put("amount", 1000.00);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(savingsRequest)))
+                .andExpect(status().isCreated());
+
+        // When - Lock the budget
+        mockMvc.perform(put("/api/budgets/" + budgetId + "/lock"))
+                .andExpect(status().isOk());
+
+        // Then - Verify budget is locked
+        mockMvc.perform(get("/api/budgets/" + budgetId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id", is(budgetId)))
+                .andExpect(jsonPath("$.status", is("LOCKED")))
+                .andExpect(jsonPath("$.lockedAt").exists())
+                .andExpect(jsonPath("$.totals.income", is(3000.00)))
+                .andExpect(jsonPath("$.totals.expenses", is(2000.00)))
+                .andExpect(jsonPath("$.totals.savings", is(1000.00)))
+                .andExpect(jsonPath("$.totals.balance", is(0.00)));
+    }
+
+    @Test
+    void shouldRejectLockWhenBalanceIsPositive() throws Exception {
+        // Given - Create budget with positive balance
+        Map<String, Object> budgetRequest = createBudgetRequest(6, 2024);
+        String budgetResponse = mockMvc.perform(post("/api/budgets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(budgetRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String budgetId = objectMapper.readTree(budgetResponse).get("id").asText();
+
+        // Create bank account
+        org.example.axelnyman.main.domain.model.BankAccount account = createBankAccountEntity("Checking", "Main account", new BigDecimal("5000.00"));
+
+        // Add income: 3000.00
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("bankAccountId", account.getId().toString());
+        incomeRequest.put("name", "Salary");
+        incomeRequest.put("amount", 3000.00);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isCreated());
+
+        // Add expense: 2000.00 (leaving 1000.00 positive balance)
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("bankAccountId", account.getId().toString());
+        expenseRequest.put("name", "Rent");
+        expenseRequest.put("amount", 2000.00);
+        expenseRequest.put("isManual", true);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isCreated());
+
+        // When & Then - Attempt to lock should fail
+        mockMvc.perform(put("/api/budgets/" + budgetId + "/lock"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error", is("Budget must have zero balance. Current balance: 1000.00")));
+    }
+
+    @Test
+    void shouldRejectLockWhenBalanceIsNegative() throws Exception {
+        // Given - Create budget with negative balance
+        Map<String, Object> budgetRequest = createBudgetRequest(6, 2024);
+        String budgetResponse = mockMvc.perform(post("/api/budgets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(budgetRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String budgetId = objectMapper.readTree(budgetResponse).get("id").asText();
+
+        // Create bank account
+        org.example.axelnyman.main.domain.model.BankAccount account = createBankAccountEntity("Checking", "Main account", new BigDecimal("5000.00"));
+
+        // Add income: 2000.00
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("bankAccountId", account.getId().toString());
+        incomeRequest.put("name", "Salary");
+        incomeRequest.put("amount", 2000.00);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isCreated());
+
+        // Add expense: 2500.00
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("bankAccountId", account.getId().toString());
+        expenseRequest.put("name", "Rent");
+        expenseRequest.put("amount", 2500.00);
+        expenseRequest.put("isManual", true);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isCreated());
+
+        // Add savings: 500.00 (total outflow 3000, income 2000, balance -1000)
+        Map<String, Object> savingsRequest = new HashMap<>();
+        savingsRequest.put("bankAccountId", account.getId().toString());
+        savingsRequest.put("name", "Emergency Fund");
+        savingsRequest.put("amount", 500.00);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(savingsRequest)))
+                .andExpect(status().isCreated());
+
+        // When & Then - Attempt to lock should fail
+        mockMvc.perform(put("/api/budgets/" + budgetId + "/lock"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error", is("Budget must have zero balance. Current balance: -1000.00")));
+    }
+
+    @Test
+    void shouldRejectLockWhenBudgetAlreadyLocked() throws Exception {
+        // Given - Create and lock a budget
+        Map<String, Object> budgetRequest = createBudgetRequest(6, 2024);
+        String budgetResponse = mockMvc.perform(post("/api/budgets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(budgetRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String budgetId = objectMapper.readTree(budgetResponse).get("id").asText();
+
+        // Lock the budget (zero balance is acceptable)
+        mockMvc.perform(put("/api/budgets/" + budgetId + "/lock"))
+                .andExpect(status().isOk());
+
+        // When & Then - Attempt to lock again should fail
+        mockMvc.perform(put("/api/budgets/" + budgetId + "/lock"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error", is("Budget is already locked")));
+    }
+
+    @Test
+    void shouldUpdateRecurringExpenseLastUsedDateOnLock() throws Exception {
+        // Given - Create budget with expense linked to recurring expense template
+        Map<String, Object> budgetRequest = createBudgetRequest(6, 2024);
+        String budgetResponse = mockMvc.perform(post("/api/budgets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(budgetRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String budgetId = objectMapper.readTree(budgetResponse).get("id").asText();
+
+        // Create bank account and recurring expense
+        org.example.axelnyman.main.domain.model.BankAccount account = createBankAccountEntity("Checking", "Main account", new BigDecimal("5000.00"));
+        org.example.axelnyman.main.domain.model.RecurringExpense recurringExpense = createRecurringExpenseEntity("Netflix", new BigDecimal("15.99"));
+
+        // Add income to balance the expense
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("bankAccountId", account.getId().toString());
+        incomeRequest.put("name", "Salary");
+        incomeRequest.put("amount", 15.99);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isCreated());
+
+        // Add expense linked to recurring expense template
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("bankAccountId", account.getId().toString());
+        expenseRequest.put("name", "Netflix");
+        expenseRequest.put("amount", 15.99);
+        expenseRequest.put("recurringExpenseId", recurringExpense.getId().toString());
+        expenseRequest.put("isManual", false);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isCreated());
+
+        // When - Lock the budget
+        mockMvc.perform(put("/api/budgets/" + budgetId + "/lock"))
+                .andExpect(status().isOk());
+
+        // Then - Verify recurring expense's lastUsedDate and lastUsedBudgetId are updated
+        org.example.axelnyman.main.domain.model.RecurringExpense updatedExpense = recurringExpenseRepository.findById(recurringExpense.getId()).orElseThrow();
+        assertThat(updatedExpense.getLastUsedDate()).isNotNull();
+        assertThat(updatedExpense.getLastUsedBudgetId()).isEqualTo(UUID.fromString(budgetId));
+    }
+
+    @Test
+    void shouldUpdateMultipleRecurringExpensesOnLock() throws Exception {
+        // Given - Create budget with 3 expenses, 2 linked to different recurring templates
+        Map<String, Object> budgetRequest = createBudgetRequest(6, 2024);
+        String budgetResponse = mockMvc.perform(post("/api/budgets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(budgetRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String budgetId = objectMapper.readTree(budgetResponse).get("id").asText();
+
+        // Create bank account and recurring expenses
+        org.example.axelnyman.main.domain.model.BankAccount account = createBankAccountEntity("Checking", "Main account", new BigDecimal("5000.00"));
+        org.example.axelnyman.main.domain.model.RecurringExpense netflix = createRecurringExpenseEntity("Netflix", new BigDecimal("15.99"));
+        org.example.axelnyman.main.domain.model.RecurringExpense spotify = createRecurringExpenseEntity("Spotify", new BigDecimal("9.99"));
+
+        // Add income to balance all expenses (15.99 + 9.99 + 50.00 = 75.98)
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("bankAccountId", account.getId().toString());
+        incomeRequest.put("name", "Salary");
+        incomeRequest.put("amount", 75.98);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isCreated());
+
+        // Add expense 1 (linked to Netflix)
+        Map<String, Object> expense1Request = new HashMap<>();
+        expense1Request.put("bankAccountId", account.getId().toString());
+        expense1Request.put("name", "Netflix");
+        expense1Request.put("amount", 15.99);
+        expense1Request.put("recurringExpenseId", netflix.getId().toString());
+        expense1Request.put("isManual", false);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expense1Request)))
+                .andExpect(status().isCreated());
+
+        // Add expense 2 (linked to Spotify)
+        Map<String, Object> expense2Request = new HashMap<>();
+        expense2Request.put("bankAccountId", account.getId().toString());
+        expense2Request.put("name", "Spotify");
+        expense2Request.put("amount", 9.99);
+        expense2Request.put("recurringExpenseId", spotify.getId().toString());
+        expense2Request.put("isManual", false);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expense2Request)))
+                .andExpect(status().isCreated());
+
+        // Add expense 3 (manual, no recurring expense)
+        Map<String, Object> expense3Request = new HashMap<>();
+        expense3Request.put("bankAccountId", account.getId().toString());
+        expense3Request.put("name", "One-time purchase");
+        expense3Request.put("amount", 50.00);
+        expense3Request.put("isManual", true);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expense3Request)))
+                .andExpect(status().isCreated());
+
+        // When - Lock the budget
+        mockMvc.perform(put("/api/budgets/" + budgetId + "/lock"))
+                .andExpect(status().isOk());
+
+        // Then - Verify both recurring expenses are updated
+        org.example.axelnyman.main.domain.model.RecurringExpense updatedNetflix = recurringExpenseRepository.findById(netflix.getId()).orElseThrow();
+        org.example.axelnyman.main.domain.model.RecurringExpense updatedSpotify = recurringExpenseRepository.findById(spotify.getId()).orElseThrow();
+
+        assertThat(updatedNetflix.getLastUsedDate()).isNotNull();
+        assertThat(updatedNetflix.getLastUsedBudgetId()).isEqualTo(UUID.fromString(budgetId));
+        assertThat(updatedSpotify.getLastUsedDate()).isNotNull();
+        assertThat(updatedSpotify.getLastUsedBudgetId()).isEqualTo(UUID.fromString(budgetId));
+    }
+
+    @Test
+    void shouldHandleLatestLockWinsForSameRecurringExpense() throws Exception {
+        // Given - Create first budget with recurring expense
+        Map<String, Object> budget1Request = createBudgetRequest(6, 2024);
+        String budget1Response = mockMvc.perform(post("/api/budgets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(budget1Request)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String budget1Id = objectMapper.readTree(budget1Response).get("id").asText();
+
+        // Create bank account and recurring expense
+        org.example.axelnyman.main.domain.model.BankAccount account = createBankAccountEntity("Checking", "Main account", new BigDecimal("5000.00"));
+        org.example.axelnyman.main.domain.model.RecurringExpense netflix = createRecurringExpenseEntity("Netflix", new BigDecimal("15.99"));
+
+        // Add income to first budget to balance the expense
+        Map<String, Object> income1Request = new HashMap<>();
+        income1Request.put("bankAccountId", account.getId().toString());
+        income1Request.put("name", "Salary");
+        income1Request.put("amount", 15.99);
+        mockMvc.perform(post("/api/budgets/" + budget1Id + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(income1Request)))
+                .andExpect(status().isCreated());
+
+        // Add expense to first budget
+        Map<String, Object> expense1Request = new HashMap<>();
+        expense1Request.put("bankAccountId", account.getId().toString());
+        expense1Request.put("name", "Netflix");
+        expense1Request.put("amount", 15.99);
+        expense1Request.put("recurringExpenseId", netflix.getId().toString());
+        expense1Request.put("isManual", false);
+        mockMvc.perform(post("/api/budgets/" + budget1Id + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expense1Request)))
+                .andExpect(status().isCreated());
+
+        // Lock first budget
+        mockMvc.perform(put("/api/budgets/" + budget1Id + "/lock"))
+                .andExpect(status().isOk());
+
+        // Create second budget
+        Map<String, Object> budget2Request = createBudgetRequest(7, 2024);
+        String budget2Response = mockMvc.perform(post("/api/budgets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(budget2Request)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String budget2Id = objectMapper.readTree(budget2Response).get("id").asText();
+
+        // Add income to second budget to balance the expense
+        Map<String, Object> income2Request = new HashMap<>();
+        income2Request.put("bankAccountId", account.getId().toString());
+        income2Request.put("name", "Salary");
+        income2Request.put("amount", 15.99);
+        mockMvc.perform(post("/api/budgets/" + budget2Id + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(income2Request)))
+                .andExpect(status().isCreated());
+
+        // Add same recurring expense to second budget
+        Map<String, Object> expense2Request = new HashMap<>();
+        expense2Request.put("bankAccountId", account.getId().toString());
+        expense2Request.put("name", "Netflix");
+        expense2Request.put("amount", 15.99);
+        expense2Request.put("recurringExpenseId", netflix.getId().toString());
+        expense2Request.put("isManual", false);
+        mockMvc.perform(post("/api/budgets/" + budget2Id + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expense2Request)))
+                .andExpect(status().isCreated());
+
+        // When - Lock second budget
+        mockMvc.perform(put("/api/budgets/" + budget2Id + "/lock"))
+                .andExpect(status().isOk());
+
+        // Then - Verify recurring expense tracks the second budget's lock
+        org.example.axelnyman.main.domain.model.RecurringExpense updatedNetflix = recurringExpenseRepository.findById(netflix.getId()).orElseThrow();
+        assertThat(updatedNetflix.getLastUsedBudgetId()).isEqualTo(UUID.fromString(budget2Id));
+    }
+
+    @Test
+    void shouldNotUpdateRecurringExpenseForManualExpenses() throws Exception {
+        // Given - Create budget with only manual expense (no recurringExpenseId)
+        Map<String, Object> budgetRequest = createBudgetRequest(6, 2024);
+        String budgetResponse = mockMvc.perform(post("/api/budgets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(budgetRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String budgetId = objectMapper.readTree(budgetResponse).get("id").asText();
+
+        // Create bank account
+        org.example.axelnyman.main.domain.model.BankAccount account = createBankAccountEntity("Checking", "Main account", new BigDecimal("5000.00"));
+
+        // Add income to balance the expense
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("bankAccountId", account.getId().toString());
+        incomeRequest.put("name", "Salary");
+        incomeRequest.put("amount", 100.00);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isCreated());
+
+        // Add manual expense (no recurringExpenseId)
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("bankAccountId", account.getId().toString());
+        expenseRequest.put("name", "One-time expense");
+        expenseRequest.put("amount", 100.00);
+        expenseRequest.put("isManual", true);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isCreated());
+
+        // When & Then - Lock should succeed without errors
+        mockMvc.perform(put("/api/budgets/" + budgetId + "/lock"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status", is("LOCKED")));
+    }
+
+    @Test
+    void shouldRejectLockForNonExistentBudget() throws Exception {
+        // Given
+        UUID nonExistentId = UUID.randomUUID();
+
+        // When & Then
+        mockMvc.perform(put("/api/budgets/" + nonExistentId + "/lock"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error", is("Budget not found")));
+    }
+
     // Helper method to create budget request
     private Map<String, Object> createBudgetRequest(Integer month, Integer year) {
         Map<String, Object> request = new HashMap<>();

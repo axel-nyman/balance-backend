@@ -213,6 +213,22 @@ public class DataService implements IDataService {
         return budgetSavingsRepository.findAllByBudgetIdWithBankAccount(budgetId);
     }
 
+    // Budget Lock operations (Story 24) - Calculation methods
+    @Override
+    public java.math.BigDecimal calculateTotalIncome(java.util.UUID budgetId) {
+        return budgetIncomeRepository.sumAmountByBudgetId(budgetId);
+    }
+
+    @Override
+    public java.math.BigDecimal calculateTotalExpenses(java.util.UUID budgetId) {
+        return budgetExpenseRepository.sumAmountByBudgetId(budgetId);
+    }
+
+    @Override
+    public java.math.BigDecimal calculateTotalSavings(java.util.UUID budgetId) {
+        return budgetSavingsRepository.sumAmountByBudgetId(budgetId);
+    }
+
     // Budget Delete operations (Story 22)
     @Override
     public void deleteBudget(java.util.UUID id) {

@@ -112,4 +112,9 @@ public class BudgetController {
         domainService.deleteBudgetSavings(budgetId, id);
         return ResponseEntity.noContent().build();
     }
+
+    @PutMapping("/{id}/lock")
+    public ResponseEntity<BudgetResponse> lockBudget(@PathVariable UUID id) {
+        return ResponseEntity.ok(domainService.lockBudget(id));
+    }
 }

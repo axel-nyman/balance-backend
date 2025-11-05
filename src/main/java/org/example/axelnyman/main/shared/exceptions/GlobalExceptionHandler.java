@@ -115,6 +115,20 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 
+    @ExceptionHandler(BudgetAlreadyLockedException.class)
+    public ResponseEntity<Object> handleBudgetAlreadyLockedException(BudgetAlreadyLockedException ex) {
+        Map<String, String> errorResponse = new HashMap<>();
+        errorResponse.put("error", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
+    @ExceptionHandler(BudgetNotBalancedException.class)
+    public ResponseEntity<Object> handleBudgetNotBalancedException(BudgetNotBalancedException ex) {
+        Map<String, String> errorResponse = new HashMap<>();
+        errorResponse.put("error", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
     @ExceptionHandler(CannotDeleteLockedBudgetException.class)
     public ResponseEntity<Object> handleCannotDeleteLockedBudgetException(CannotDeleteLockedBudgetException ex) {
         Map<String, String> errorResponse = new HashMap<>();

@@ -22,7 +22,9 @@ import org.example.axelnyman.main.domain.model.BudgetStatus;
 import org.example.axelnyman.main.domain.model.RecurringExpense;
 import org.example.axelnyman.main.shared.exceptions.AccountLinkedToBudgetException;
 import org.example.axelnyman.main.shared.exceptions.BankAccountNotFoundException;
+import org.example.axelnyman.main.shared.exceptions.BudgetAlreadyLockedException;
 import org.example.axelnyman.main.shared.exceptions.BudgetLockedException;
+import org.example.axelnyman.main.shared.exceptions.BudgetNotBalancedException;
 import org.example.axelnyman.main.shared.exceptions.BudgetNotFoundException;
 import org.example.axelnyman.main.shared.exceptions.DuplicateBankAccountNameException;
 import org.example.axelnyman.main.shared.exceptions.DuplicateBudgetException;
@@ -676,5 +678,68 @@ public class DomainService implements IDomainService {
 
         // Delete budget
         dataService.deleteBudget(id);
+    }
+
+    // Budget locking operations (Story 24)
+    @Override
+    @Transactional
+    public BudgetResponse lockBudget(UUID budgetId) {
+        // Fetch budget and verify it exists
+        Budget budget = dataService.getBudgetById(budgetId)
+                .orElseThrow(() -> new BudgetNotFoundException("Budget not found"));
+
+        // Check if already locked
+        if (budget.getStatus() == BudgetStatus.LOCKED) {
+            throw new BudgetAlreadyLockedException("Budget is already locked");
+        }
+
+        // Calculate total balance (income - expenses - savings)
+        BigDecimal totalIncome = dataService.calculateTotalIncome(budgetId);
+        BigDecimal totalExpenses = dataService.calculateTotalExpenses(budgetId);
+        BigDecimal totalSavings = dataService.calculateTotalSavings(budgetId);
+        BigDecimal balance = totalIncome.subtract(totalExpenses).subtract(totalSavings);
+
+        // Verify balance equals zero
+        if (balance.compareTo(BigDecimal.ZERO) != 0) {
+            throw new BudgetNotBalancedException(
+                    "Budget must have zero balance. Current balance: " + balance.toString());
+        }
+
+        // Set status to LOCKED and set lockedAt timestamp
+        budget.setStatus(BudgetStatus.LOCKED);
+        LocalDateTime lockedAt = LocalDateTime.now();
+        budget.setLockedAt(lockedAt);
+
+        // Save budget
+        Budget savedBudget = dataService.saveBudget(budget);
+
+        // Update recurring expenses for this budget
+        updateRecurringExpensesForBudget(budgetId, lockedAt);
+
+        // Return DTO
+        return BudgetExtensions.toResponse(savedBudget);
+    }
+
+    private void updateRecurringExpensesForBudget(UUID budgetId, LocalDateTime lockedAt) {
+        // Get all budget expenses for this budget
+        List<BudgetExpense> budgetExpenses = dataService.getBudgetExpensesByBudgetId(budgetId);
+
+        // Filter to only those with non-null recurringExpenseId
+        List<UUID> recurringExpenseIds = budgetExpenses.stream()
+                .filter(expense -> expense.getRecurringExpenseId() != null)
+                .map(BudgetExpense::getRecurringExpenseId)
+                .distinct()
+                .toList();
+
+        // For each unique recurring expense, update lastUsedDate and lastUsedBudgetId
+        for (UUID recurringExpenseId : recurringExpenseIds) {
+            RecurringExpense recurringExpense = dataService.getRecurringExpenseById(recurringExpenseId)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Recurring expense not found with id: " + recurringExpenseId));
+
+            recurringExpense.setLastUsedDate(lockedAt);
+            recurringExpense.setLastUsedBudgetId(budgetId);
+            dataService.saveRecurringExpense(recurringExpense);
+        }
     }
 }

@@ -34,6 +34,9 @@ public final class RecurringExpense {
     @Column(name = "last_used_date")
     private LocalDateTime lastUsedDate;
 
+    @Column(name = "last_used_budget_id")
+    private UUID lastUsedBudgetId;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -105,6 +108,14 @@ public final class RecurringExpense {
 
     public void setLastUsedDate(LocalDateTime lastUsedDate) {
         this.lastUsedDate = lastUsedDate;
+    }
+
+    public UUID getLastUsedBudgetId() {
+        return lastUsedBudgetId;
+    }
+
+    public void setLastUsedBudgetId(UUID lastUsedBudgetId) {
+        this.lastUsedBudgetId = lastUsedBudgetId;
     }
 
     public LocalDateTime getCreatedAt() {

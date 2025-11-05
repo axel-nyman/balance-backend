@@ -60,4 +60,7 @@ public interface IDomainService {
     void deleteBudgetSavings(UUID budgetId, UUID id);
 
     void deleteBudget(UUID id);
+
+    // Budget locking operations (Story 24)
+    BudgetResponse lockBudget(UUID budgetId);
 }

@@ -9,6 +9,7 @@ import org.example.axelnyman.main.domain.model.BudgetSavings;
 import org.example.axelnyman.main.domain.model.BudgetStatus;
 import org.example.axelnyman.main.domain.model.RecurringExpense;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -88,6 +89,13 @@ public interface IDataService {
     List<BudgetExpense> getBudgetExpensesByBudgetId(UUID budgetId);
 
     List<BudgetSavings> getBudgetSavingsByBudgetId(UUID budgetId);
+
+    // Budget Lock operations (Story 24) - Calculation methods
+    BigDecimal calculateTotalIncome(UUID budgetId);
+
+    BigDecimal calculateTotalExpenses(UUID budgetId);
+
+    BigDecimal calculateTotalSavings(UUID budgetId);
 
     // Budget Delete operations (Story 22)
     void deleteBudget(UUID id);
