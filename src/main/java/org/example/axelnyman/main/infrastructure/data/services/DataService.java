@@ -212,4 +212,25 @@ public class DataService implements IDataService {
     public java.util.List<BudgetSavings> getBudgetSavingsByBudgetId(java.util.UUID budgetId) {
         return budgetSavingsRepository.findAllByBudgetIdWithBankAccount(budgetId);
     }
+
+    // Budget Delete operations (Story 22)
+    @Override
+    public void deleteBudget(java.util.UUID id) {
+        budgetRepository.deleteById(id);
+    }
+
+    @Override
+    public void deleteBudgetIncomeByBudgetId(java.util.UUID budgetId) {
+        budgetIncomeRepository.deleteByBudgetId(budgetId);
+    }
+
+    @Override
+    public void deleteBudgetExpensesByBudgetId(java.util.UUID budgetId) {
+        budgetExpenseRepository.deleteByBudgetId(budgetId);
+    }
+
+    @Override
+    public void deleteBudgetSavingsByBudgetId(java.util.UUID budgetId) {
+        budgetSavingsRepository.deleteByBudgetId(budgetId);
+    }
 }

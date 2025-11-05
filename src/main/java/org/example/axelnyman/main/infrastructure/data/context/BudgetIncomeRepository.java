@@ -19,4 +19,6 @@ public interface BudgetIncomeRepository extends JpaRepository<BudgetIncome, UUID
 
     @Query("SELECT bi FROM BudgetIncome bi LEFT JOIN FETCH bi.bankAccount WHERE bi.budgetId = :budgetId")
     List<BudgetIncome> findAllByBudgetIdWithBankAccount(@Param("budgetId") UUID budgetId);
+
+    void deleteByBudgetId(UUID budgetId);
 }

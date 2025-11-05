@@ -655,4 +655,26 @@ public class DomainService implements IDomainService {
         // Perform hard delete
         dataService.deleteBudgetSavings(id);
     }
+
+    @Override
+    @Transactional
+    public void deleteBudget(UUID id) {
+        // Get budget and verify it exists
+        Budget budget = dataService.getBudgetById(id)
+                .orElseThrow(() -> new BudgetNotFoundException("Budget not found"));
+
+        // Verify budget is unlocked
+        if (budget.getStatus() == BudgetStatus.LOCKED) {
+            throw new org.example.axelnyman.main.shared.exceptions.CannotDeleteLockedBudgetException(
+                    "Cannot delete locked budget. Unlock it first.");
+        }
+
+        // Delete all budget items (cascade delete)
+        dataService.deleteBudgetIncomeByBudgetId(id);
+        dataService.deleteBudgetExpensesByBudgetId(id);
+        dataService.deleteBudgetSavingsByBudgetId(id);
+
+        // Delete budget
+        dataService.deleteBudget(id);
+    }
 }

@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.example.axelnyman.main.TestDateTimeMatchers.matchesTimestampIgnoringNanos;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -4248,6 +4249,267 @@ public class BudgetIntegrationTest {
         mockMvc.perform(delete("/api/budgets/" + budget2.getId() + "/savings/" + savingsId))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error").exists());
+    }
+
+    // Story 22: Delete Unlocked Budget Tests
+
+    @Test
+    void shouldDeleteUnlockedBudgetSuccessfully() throws Exception {
+        // Given
+        Map<String, Object> request = createBudgetRequest(6, 2024);
+        String createResponse = mockMvc.perform(post("/api/budgets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String budgetId = objectMapper.readTree(createResponse).get("id").asText();
+
+        // When & Then
+        mockMvc.perform(delete("/api/budgets/" + budgetId))
+                .andExpect(status().isNoContent());
+
+        // Verify budget is actually deleted
+        mockMvc.perform(get("/api/budgets/" + budgetId))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void shouldCascadeDeleteBudgetIncomeWhenBudgetDeleted() throws Exception {
+        // Given - Create budget with income
+        org.example.axelnyman.main.domain.model.BankAccount account = createBankAccountEntity(
+                "Checking", "Primary account", new BigDecimal("1000.00"));
+
+        Map<String, Object> budgetRequest = createBudgetRequest(6, 2024);
+        String createResponse = mockMvc.perform(post("/api/budgets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(budgetRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String budgetId = objectMapper.readTree(createResponse).get("id").asText();
+
+        // Add income to budget
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("bankAccountId", account.getId().toString());
+        incomeRequest.put("name", "Salary");
+        incomeRequest.put("amount", 5000.00);
+
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isCreated());
+
+        // Verify income exists
+        long incomeCountBefore = budgetIncomeRepository.count();
+
+        // When - Delete budget
+        mockMvc.perform(delete("/api/budgets/" + budgetId))
+                .andExpect(status().isNoContent());
+
+        // Then - Verify income was cascade deleted
+        long incomeCountAfter = budgetIncomeRepository.count();
+        assertThat(incomeCountAfter).isLessThan(incomeCountBefore);
+        assertThat(budgetIncomeRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    void shouldCascadeDeleteBudgetExpensesWhenBudgetDeleted() throws Exception {
+        // Given - Create budget with expense
+        org.example.axelnyman.main.domain.model.BankAccount account = createBankAccountEntity(
+                "Checking", "Primary account", new BigDecimal("1000.00"));
+
+        Map<String, Object> budgetRequest = createBudgetRequest(6, 2024);
+        String createResponse = mockMvc.perform(post("/api/budgets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(budgetRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String budgetId = objectMapper.readTree(createResponse).get("id").asText();
+
+        // Add expense to budget
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("bankAccountId", account.getId().toString());
+        expenseRequest.put("name", "Rent");
+        expenseRequest.put("amount", 1500.00);
+        expenseRequest.put("isManual", true);
+
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isCreated());
+
+        // Verify expense exists
+        long expenseCountBefore = budgetExpenseRepository.count();
+
+        // When - Delete budget
+        mockMvc.perform(delete("/api/budgets/" + budgetId))
+                .andExpect(status().isNoContent());
+
+        // Then - Verify expense was cascade deleted
+        long expenseCountAfter = budgetExpenseRepository.count();
+        assertThat(expenseCountAfter).isLessThan(expenseCountBefore);
+        assertThat(budgetExpenseRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    void shouldCascadeDeleteBudgetSavingsWhenBudgetDeleted() throws Exception {
+        // Given - Create budget with savings
+        org.example.axelnyman.main.domain.model.BankAccount account = createBankAccountEntity(
+                "Savings", "Savings account", new BigDecimal("5000.00"));
+
+        Map<String, Object> budgetRequest = createBudgetRequest(6, 2024);
+        String createResponse = mockMvc.perform(post("/api/budgets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(budgetRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String budgetId = objectMapper.readTree(createResponse).get("id").asText();
+
+        // Add savings to budget
+        Map<String, Object> savingsRequest = new HashMap<>();
+        savingsRequest.put("bankAccountId", account.getId().toString());
+        savingsRequest.put("name", "Emergency Fund");
+        savingsRequest.put("amount", 1000.00);
+
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(savingsRequest)))
+                .andExpect(status().isCreated());
+
+        // Verify savings exists
+        long savingsCountBefore = budgetSavingsRepository.count();
+
+        // When - Delete budget
+        mockMvc.perform(delete("/api/budgets/" + budgetId))
+                .andExpect(status().isNoContent());
+
+        // Then - Verify savings was cascade deleted
+        long savingsCountAfter = budgetSavingsRepository.count();
+        assertThat(savingsCountAfter).isLessThan(savingsCountBefore);
+        assertThat(budgetSavingsRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    void shouldCascadeDeleteAllBudgetItemsWhenBudgetDeleted() throws Exception {
+        // Given - Create budget with income, expenses, and savings
+        org.example.axelnyman.main.domain.model.BankAccount account = createBankAccountEntity(
+                "Checking", "Primary account", new BigDecimal("10000.00"));
+
+        Map<String, Object> budgetRequest = createBudgetRequest(6, 2024);
+        String createResponse = mockMvc.perform(post("/api/budgets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(budgetRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String budgetId = objectMapper.readTree(createResponse).get("id").asText();
+
+        // Add income
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("bankAccountId", account.getId().toString());
+        incomeRequest.put("name", "Salary");
+        incomeRequest.put("amount", 5000.00);
+
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isCreated());
+
+        // Add expense
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("bankAccountId", account.getId().toString());
+        expenseRequest.put("name", "Rent");
+        expenseRequest.put("amount", 1500.00);
+        expenseRequest.put("isManual", true);
+
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isCreated());
+
+        // Add savings
+        Map<String, Object> savingsRequest = new HashMap<>();
+        savingsRequest.put("bankAccountId", account.getId().toString());
+        savingsRequest.put("name", "Emergency Fund");
+        savingsRequest.put("amount", 1000.00);
+
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(savingsRequest)))
+                .andExpect(status().isCreated());
+
+        // Verify all items exist
+        long incomeCountBefore = budgetIncomeRepository.count();
+        long expenseCountBefore = budgetExpenseRepository.count();
+        long savingsCountBefore = budgetSavingsRepository.count();
+
+        // When - Delete budget
+        mockMvc.perform(delete("/api/budgets/" + budgetId))
+                .andExpect(status().isNoContent());
+
+        // Then - Verify all items were cascade deleted
+        assertThat(budgetIncomeRepository.count()).isLessThan(incomeCountBefore);
+        assertThat(budgetExpenseRepository.count()).isLessThan(expenseCountBefore);
+        assertThat(budgetSavingsRepository.count()).isLessThan(savingsCountBefore);
+        assertThat(budgetIncomeRepository.findAll()).isEmpty();
+        assertThat(budgetExpenseRepository.findAll()).isEmpty();
+        assertThat(budgetSavingsRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    void shouldAllowCreatingSameBudgetAfterDeletion() throws Exception {
+        // Given - Create and delete budget for June 2024
+        Map<String, Object> request = createBudgetRequest(6, 2024);
+        String createResponse = mockMvc.perform(post("/api/budgets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String budgetId = objectMapper.readTree(createResponse).get("id").asText();
+
+        mockMvc.perform(delete("/api/budgets/" + budgetId))
+                .andExpect(status().isNoContent());
+
+        // When - Create new budget for same month/year
+        Map<String, Object> newRequest = createBudgetRequest(6, 2024);
+
+        // Then - Should succeed
+        mockMvc.perform(post("/api/budgets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(newRequest)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.month", is(6)))
+                .andExpect(jsonPath("$.year", is(2024)))
+                .andExpect(jsonPath("$.status", is("UNLOCKED")));
+    }
+
+    @Test
+    void shouldRejectDeleteLockedBudget() throws Exception {
+        // Given - Create budget and lock it
+        org.example.axelnyman.main.domain.model.Budget budget = new org.example.axelnyman.main.domain.model.Budget(6, 2024);
+        budget.setStatus(org.example.axelnyman.main.domain.model.BudgetStatus.LOCKED);
+        budget.setLockedAt(java.time.LocalDateTime.now());
+        budget = budgetRepository.save(budget);
+
+        // When & Then - Attempt to delete locked budget
+        mockMvc.perform(delete("/api/budgets/" + budget.getId()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error", is("Cannot delete locked budget. Unlock it first.")));
+    }
+
+    @Test
+    void shouldRejectDeleteNonExistentBudget() throws Exception {
+        // Given
+        UUID nonExistentId = UUID.randomUUID();
+
+        // When & Then
+        mockMvc.perform(delete("/api/budgets/" + nonExistentId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error", is("Budget not found")));
     }
 
     // Helper method to create budget request

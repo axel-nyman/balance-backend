@@ -115,6 +115,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 
+    @ExceptionHandler(CannotDeleteLockedBudgetException.class)
+    public ResponseEntity<Object> handleCannotDeleteLockedBudgetException(CannotDeleteLockedBudgetException ex) {
+        Map<String, String> errorResponse = new HashMap<>();
+        errorResponse.put("error", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
     @ExceptionHandler(BudgetNotFoundException.class)
     public ResponseEntity<Object> handleBudgetNotFoundException(BudgetNotFoundException ex) {
         Map<String, String> errorResponse = new HashMap<>();

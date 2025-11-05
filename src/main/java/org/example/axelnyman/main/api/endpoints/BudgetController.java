@@ -35,6 +35,12 @@ public class BudgetController {
         return ResponseEntity.ok(domainService.getBudgetDetails(id));
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteBudget(@PathVariable UUID id) {
+        domainService.deleteBudget(id);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/{budgetId}/income")
     public ResponseEntity<BudgetIncomeResponse> addIncomeToBudget(
             @PathVariable UUID budgetId,

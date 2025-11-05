@@ -58,4 +58,6 @@ public interface IDomainService {
     BudgetSavingsResponse updateBudgetSavings(UUID budgetId, UUID id, UpdateBudgetSavingsRequest request);
 
     void deleteBudgetSavings(UUID budgetId, UUID id);
+
+    void deleteBudget(UUID id);
 }
