@@ -23,6 +23,7 @@ import org.example.axelnyman.main.domain.model.BudgetSavings;
 import org.example.axelnyman.main.domain.model.BudgetStatus;
 import org.example.axelnyman.main.domain.model.RecurringExpense;
 import org.example.axelnyman.main.domain.model.TodoItem;
+import org.example.axelnyman.main.domain.model.TodoItemStatus;
 import org.example.axelnyman.main.domain.model.TodoItemType;
 import org.example.axelnyman.main.domain.model.TodoList;
 import org.example.axelnyman.main.domain.model.TransferPlan;
@@ -40,6 +41,7 @@ import org.example.axelnyman.main.shared.exceptions.DuplicateRecurringExpenseExc
 import org.example.axelnyman.main.shared.exceptions.FutureDateException;
 import org.example.axelnyman.main.shared.exceptions.InvalidYearException;
 import org.example.axelnyman.main.shared.exceptions.NotMostRecentBudgetException;
+import org.example.axelnyman.main.shared.exceptions.TodoItemNotFoundException;
 import org.example.axelnyman.main.shared.exceptions.TodoListNotFoundException;
 import org.example.axelnyman.main.shared.exceptions.UnlockedBudgetExistsException;
 import org.springframework.stereotype.Service;
@@ -1010,5 +1012,54 @@ public class DomainService implements IDomainService {
 
         // Return mapped response with summary
         return TodoExtensions.toResponse(todoList, itemResponses);
+    }
+
+    @Override
+    @Transactional
+    public TodoItemResponse updateTodoItemStatus(UUID budgetId, UUID todoItemId, UpdateTodoItemRequest request) {
+        // Fetch todo item by ID
+        TodoItem todoItem = dataService.getTodoItemById(todoItemId)
+                .orElseThrow(() -> new TodoItemNotFoundException("Todo item not found"));
+
+        // Fetch budget and validate it exists
+        Budget budget = dataService.getBudgetById(budgetId)
+                .orElseThrow(() -> new BudgetNotFoundException("Budget not found"));
+
+        // Validate budget is locked
+        if (budget.getStatus() != BudgetStatus.LOCKED) {
+            throw new BudgetNotLockedException("Budget must be locked");
+        }
+
+        // Fetch todo list for this budget and verify item belongs to it
+        TodoList todoList = dataService.getTodoListByBudgetId(budgetId)
+                .orElseThrow(() -> new TodoListNotFoundException("Todo list not found for this budget"));
+
+        if (!todoItem.getTodoListId().equals(todoList.getId())) {
+            throw new IllegalArgumentException("Todo item does not belong to this budget");
+        }
+
+        // Update status
+        todoItem.setStatus(request.status());
+
+        // Update completedAt timestamp based on status
+        if (request.status() == TodoItemStatus.COMPLETED) {
+            todoItem.setCompletedAt(LocalDateTime.now());
+        } else {
+            todoItem.setCompletedAt(null);
+        }
+
+        // Save updated todo item
+        TodoItem updatedTodoItem = dataService.saveTodoItem(todoItem);
+
+        // Fetch bank accounts for mapping
+        BankAccount fromAccount = updatedTodoItem.getFromAccountId() != null
+                ? dataService.getBankAccountById(updatedTodoItem.getFromAccountId()).orElse(null)
+                : null;
+        BankAccount toAccount = updatedTodoItem.getToAccountId() != null
+                ? dataService.getBankAccountById(updatedTodoItem.getToAccountId()).orElse(null)
+                : null;
+
+        // Return mapped DTO
+        return TodoExtensions.toItemResponse(updatedTodoItem, fromAccount, toAccount);
     }
 }

@@ -1,5 +1,6 @@
 package org.example.axelnyman.main.domain.dtos;
 
+import jakarta.validation.constraints.NotNull;
 import org.example.axelnyman.main.domain.model.TodoItemStatus;
 import org.example.axelnyman.main.domain.model.TodoItemType;
 
@@ -55,5 +56,13 @@ public class TodoDtos {
             LocalDateTime createdAt,
             List<TodoItemResponse> items,
             TodoSummaryResponse summary
+    ) {}
+
+    /**
+     * Request record for updating a todo item status.
+     */
+    public record UpdateTodoItemRequest(
+            @NotNull(message = "Status is required")
+            TodoItemStatus status
     ) {}
 }

@@ -74,4 +74,7 @@ public interface IDomainService {
     void generateTodoList(UUID budgetId);
 
     TodoListResponse getTodoList(UUID budgetId);
+
+    // Todo Item operations (Story 28)
+    TodoItemResponse updateTodoItemStatus(UUID budgetId, UUID todoItemId, UpdateTodoItemRequest request);
 }

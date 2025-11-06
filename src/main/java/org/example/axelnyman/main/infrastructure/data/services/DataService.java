@@ -282,6 +282,11 @@ public class DataService implements IDataService {
     }
 
     @Override
+    public java.util.Optional<TodoItem> getTodoItemById(java.util.UUID id) {
+        return todoItemRepository.findById(id);
+    }
+
+    @Override
     public void deleteTodoListByBudgetId(java.util.UUID budgetId) {
         // Find the todo list first
         todoListRepository.findByBudgetId(budgetId).ifPresent(todoList -> {

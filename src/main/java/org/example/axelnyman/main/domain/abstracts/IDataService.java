@@ -118,6 +118,8 @@ public interface IDataService {
 
     List<TodoItem> getTodoItemsByTodoListId(UUID todoListId);
 
+    Optional<TodoItem> getTodoItemById(UUID id);
+
     void deleteTodoListByBudgetId(UUID budgetId);
 
     void deleteTodoList(UUID todoListId);

@@ -128,4 +128,12 @@ public class BudgetController {
     public ResponseEntity<TodoListResponse> getTodoList(@PathVariable UUID budgetId) {
         return ResponseEntity.ok(domainService.getTodoList(budgetId));
     }
+
+    @PutMapping("/{budgetId}/todo-list/items/{id}")
+    public ResponseEntity<TodoItemResponse> updateTodoItemStatus(
+            @PathVariable UUID budgetId,
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateTodoItemRequest request) {
+        return ResponseEntity.ok(domainService.updateTodoItemStatus(budgetId, id, request));
+    }
 }

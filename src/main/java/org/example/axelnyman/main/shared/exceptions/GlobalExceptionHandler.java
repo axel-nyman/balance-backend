@@ -171,6 +171,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
 
+    @ExceptionHandler(TodoItemNotFoundException.class)
+    public ResponseEntity<Object> handleTodoItemNotFoundException(TodoItemNotFoundException ex) {
+        Map<String, String> errorResponse = new HashMap<>();
+        errorResponse.put("error", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+    }
+
     @ExceptionHandler(BudgetNotLockedException.class)
     public ResponseEntity<Object> handleBudgetNotLockedException(BudgetNotLockedException ex) {
         Map<String, String> errorResponse = new HashMap<>();

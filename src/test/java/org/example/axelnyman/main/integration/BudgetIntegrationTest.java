@@ -5005,6 +5005,448 @@ public class BudgetIntegrationTest {
                                 .andExpect(jsonPath("$.error", is("Budget not found")));
         }
 
+        // ========== Story 28: Mark Todo Item Complete ==========
+
+        @Test
+        void shouldMarkTodoItemAsCompleted() throws Exception {
+                // Given - Create locked budget with todo list
+                Map<String, Object> budgetRequest = createBudgetRequest(11, 2024);
+                String budgetResponse = mockMvc.perform(post("/api/budgets")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(budgetRequest)))
+                                .andExpect(status().isCreated())
+                                .andReturn().getResponse().getContentAsString();
+
+                String budgetId = objectMapper.readTree(budgetResponse).get("id").asText();
+
+                // Create bank account
+                org.example.axelnyman.main.domain.model.BankAccount account = createBankAccountEntity("Checking",
+                                "Main account", new BigDecimal("5000.00"));
+
+                // Add income
+                Map<String, Object> incomeRequest = new HashMap<>();
+                incomeRequest.put("bankAccountId", account.getId().toString());
+                incomeRequest.put("name", "Salary");
+                incomeRequest.put("amount", 3000.00);
+                mockMvc.perform(post("/api/budgets/" + budgetId + "/income")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(incomeRequest)))
+                                .andExpect(status().isCreated());
+
+                // Add manual expense
+                Map<String, Object> expenseRequest = new HashMap<>();
+                expenseRequest.put("bankAccountId", account.getId().toString());
+                expenseRequest.put("name", "Rent");
+                expenseRequest.put("amount", 2000.00);
+                expenseRequest.put("isManual", true);
+                mockMvc.perform(post("/api/budgets/" + budgetId + "/expenses")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(expenseRequest)))
+                                .andExpect(status().isCreated());
+
+                // Add savings
+                Map<String, Object> savingsRequest = new HashMap<>();
+                savingsRequest.put("bankAccountId", account.getId().toString());
+                savingsRequest.put("name", "Emergency Fund");
+                savingsRequest.put("amount", 1000.00);
+                mockMvc.perform(post("/api/budgets/" + budgetId + "/savings")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(savingsRequest)))
+                                .andExpect(status().isCreated());
+
+                // Lock budget (generates todo list)
+                mockMvc.perform(put("/api/budgets/" + budgetId + "/lock"))
+                                .andExpect(status().isOk());
+
+                // Get todo list to find an item
+                String todoListResponse = mockMvc.perform(get("/api/budgets/" + budgetId + "/todo-list"))
+                                .andExpect(status().isOk())
+                                .andReturn().getResponse().getContentAsString();
+
+                String todoItemId = objectMapper.readTree(todoListResponse)
+                                .get("items").get(0).get("id").asText();
+
+                // When - Mark item as completed
+                Map<String, Object> updateRequest = new HashMap<>();
+                updateRequest.put("status", "COMPLETED");
+
+                mockMvc.perform(put("/api/budgets/" + budgetId + "/todo-list/items/" + todoItemId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.id").value(todoItemId))
+                                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                                .andExpect(jsonPath("$.completedAt").exists())
+                                .andExpect(jsonPath("$.completedAt").isNotEmpty());
+        }
+
+        @Test
+        void shouldMarkTodoItemAsPending() throws Exception {
+                // Given - Create locked budget with completed todo item
+                Map<String, Object> budgetRequest = createBudgetRequest(12, 2024);
+                String budgetResponse = mockMvc.perform(post("/api/budgets")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(budgetRequest)))
+                                .andExpect(status().isCreated())
+                                .andReturn().getResponse().getContentAsString();
+
+                String budgetId = objectMapper.readTree(budgetResponse).get("id").asText();
+
+                // Create bank account
+                org.example.axelnyman.main.domain.model.BankAccount account = createBankAccountEntity("Checking2",
+                                "Main account", new BigDecimal("5000.00"));
+
+                // Add income, expense, and savings
+                Map<String, Object> incomeRequest = new HashMap<>();
+                incomeRequest.put("bankAccountId", account.getId().toString());
+                incomeRequest.put("name", "Salary");
+                incomeRequest.put("amount", 3000.00);
+                mockMvc.perform(post("/api/budgets/" + budgetId + "/income")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(incomeRequest)))
+                                .andExpect(status().isCreated());
+
+                Map<String, Object> expenseRequest = new HashMap<>();
+                expenseRequest.put("bankAccountId", account.getId().toString());
+                expenseRequest.put("name", "Rent");
+                expenseRequest.put("amount", 2000.00);
+                expenseRequest.put("isManual", true);
+                mockMvc.perform(post("/api/budgets/" + budgetId + "/expenses")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(expenseRequest)))
+                                .andExpect(status().isCreated());
+
+                Map<String, Object> savingsRequest = new HashMap<>();
+                savingsRequest.put("bankAccountId", account.getId().toString());
+                savingsRequest.put("name", "Emergency Fund");
+                savingsRequest.put("amount", 1000.00);
+                mockMvc.perform(post("/api/budgets/" + budgetId + "/savings")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(savingsRequest)))
+                                .andExpect(status().isCreated());
+
+                // Lock budget
+                mockMvc.perform(put("/api/budgets/" + budgetId + "/lock"))
+                                .andExpect(status().isOk());
+
+                // Get todo item
+                String todoListResponse = mockMvc.perform(get("/api/budgets/" + budgetId + "/todo-list"))
+                                .andExpect(status().isOk())
+                                .andReturn().getResponse().getContentAsString();
+
+                String todoItemId = objectMapper.readTree(todoListResponse)
+                                .get("items").get(0).get("id").asText();
+
+                // Mark as completed first
+                Map<String, Object> completeRequest = new HashMap<>();
+                completeRequest.put("status", "COMPLETED");
+                mockMvc.perform(put("/api/budgets/" + budgetId + "/todo-list/items/" + todoItemId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(completeRequest)))
+                                .andExpect(status().isOk());
+
+                // When - Mark item as pending
+                Map<String, Object> pendingRequest = new HashMap<>();
+                pendingRequest.put("status", "PENDING");
+
+                mockMvc.perform(put("/api/budgets/" + budgetId + "/todo-list/items/" + todoItemId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(pendingRequest)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.id").value(todoItemId))
+                                .andExpect(jsonPath("$.status").value("PENDING"))
+                                .andExpect(jsonPath("$.completedAt").doesNotExist());
+        }
+
+        @Test
+        void shouldToggleTodoItemStatusMultipleTimes() throws Exception {
+                // Given - Create locked budget with todo item
+                Map<String, Object> budgetRequest = createBudgetRequest(1, 2025);
+                String budgetResponse = mockMvc.perform(post("/api/budgets")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(budgetRequest)))
+                                .andExpect(status().isCreated())
+                                .andReturn().getResponse().getContentAsString();
+
+                String budgetId = objectMapper.readTree(budgetResponse).get("id").asText();
+
+                org.example.axelnyman.main.domain.model.BankAccount account = createBankAccountEntity("Checking3",
+                                "Main account", new BigDecimal("5000.00"));
+
+                // Add income, expense, and savings
+                Map<String, Object> incomeRequest = new HashMap<>();
+                incomeRequest.put("bankAccountId", account.getId().toString());
+                incomeRequest.put("name", "Salary");
+                incomeRequest.put("amount", 3000.00);
+                mockMvc.perform(post("/api/budgets/" + budgetId + "/income")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(incomeRequest)))
+                                .andExpect(status().isCreated());
+
+                Map<String, Object> expenseRequest = new HashMap<>();
+                expenseRequest.put("bankAccountId", account.getId().toString());
+                expenseRequest.put("name", "Rent");
+                expenseRequest.put("amount", 2000.00);
+                expenseRequest.put("isManual", true);
+                mockMvc.perform(post("/api/budgets/" + budgetId + "/expenses")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(expenseRequest)))
+                                .andExpect(status().isCreated());
+
+                Map<String, Object> savingsRequest = new HashMap<>();
+                savingsRequest.put("bankAccountId", account.getId().toString());
+                savingsRequest.put("name", "Emergency Fund");
+                savingsRequest.put("amount", 1000.00);
+                mockMvc.perform(post("/api/budgets/" + budgetId + "/savings")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(savingsRequest)))
+                                .andExpect(status().isCreated());
+
+                mockMvc.perform(put("/api/budgets/" + budgetId + "/lock"))
+                                .andExpect(status().isOk());
+
+                String todoListResponse = mockMvc.perform(get("/api/budgets/" + budgetId + "/todo-list"))
+                                .andExpect(status().isOk())
+                                .andReturn().getResponse().getContentAsString();
+
+                String todoItemId = objectMapper.readTree(todoListResponse)
+                                .get("items").get(0).get("id").asText();
+
+                // When/Then - Toggle: PENDING → COMPLETED
+                Map<String, Object> completeRequest = new HashMap<>();
+                completeRequest.put("status", "COMPLETED");
+                mockMvc.perform(put("/api/budgets/" + budgetId + "/todo-list/items/" + todoItemId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(completeRequest)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                                .andExpect(jsonPath("$.completedAt").exists());
+
+                // Toggle: COMPLETED → PENDING
+                Map<String, Object> pendingRequest = new HashMap<>();
+                pendingRequest.put("status", "PENDING");
+                mockMvc.perform(put("/api/budgets/" + budgetId + "/todo-list/items/" + todoItemId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(pendingRequest)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.status").value("PENDING"))
+                                .andExpect(jsonPath("$.completedAt").doesNotExist());
+
+                // Toggle: PENDING → COMPLETED again
+                mockMvc.perform(put("/api/budgets/" + budgetId + "/todo-list/items/" + todoItemId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(completeRequest)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                                .andExpect(jsonPath("$.completedAt").exists());
+        }
+
+        @Test
+        void shouldReturn404WhenTodoItemNotFound() throws Exception {
+                // Given - Create locked budget
+                Map<String, Object> budgetRequest = createBudgetRequest(2, 2025);
+                String budgetResponse = mockMvc.perform(post("/api/budgets")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(budgetRequest)))
+                                .andExpect(status().isCreated())
+                                .andReturn().getResponse().getContentAsString();
+
+                String budgetId = objectMapper.readTree(budgetResponse).get("id").asText();
+
+                // Create a non-existent todo item ID
+                UUID nonExistentTodoItemId = UUID.randomUUID();
+
+                // When/Then - Try to update non-existent todo item
+                Map<String, Object> updateRequest = new HashMap<>();
+                updateRequest.put("status", "COMPLETED");
+
+                mockMvc.perform(put("/api/budgets/" + budgetId + "/todo-list/items/" + nonExistentTodoItemId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.error").value("Todo item not found"));
+        }
+
+        @Test
+        void shouldRejectUpdateWhenBudgetNotLocked() throws Exception {
+                // Given - Create unlocked budget with todo list manually created
+                Map<String, Object> budgetRequest = createBudgetRequest(3, 2025);
+                String budgetResponse = mockMvc.perform(post("/api/budgets")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(budgetRequest)))
+                                .andExpect(status().isCreated())
+                                .andReturn().getResponse().getContentAsString();
+
+                String budgetId = objectMapper.readTree(budgetResponse).get("id").asText();
+
+                org.example.axelnyman.main.domain.model.BankAccount account = createBankAccountEntity("Checking4",
+                                "Main account", new BigDecimal("5000.00"));
+
+                // Add income, expense, and savings to balance the budget
+                Map<String, Object> incomeRequest = new HashMap<>();
+                incomeRequest.put("bankAccountId", account.getId().toString());
+                incomeRequest.put("name", "Salary");
+                incomeRequest.put("amount", 3000.00);
+                mockMvc.perform(post("/api/budgets/" + budgetId + "/income")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(incomeRequest)))
+                                .andExpect(status().isCreated());
+
+                Map<String, Object> expenseRequest = new HashMap<>();
+                expenseRequest.put("bankAccountId", account.getId().toString());
+                expenseRequest.put("name", "Rent");
+                expenseRequest.put("amount", 2000.00);
+                expenseRequest.put("isManual", true);
+                mockMvc.perform(post("/api/budgets/" + budgetId + "/expenses")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(expenseRequest)))
+                                .andExpect(status().isCreated());
+
+                Map<String, Object> savingsRequest = new HashMap<>();
+                savingsRequest.put("bankAccountId", account.getId().toString());
+                savingsRequest.put("name", "Emergency Fund");
+                savingsRequest.put("amount", 1000.00);
+                mockMvc.perform(post("/api/budgets/" + budgetId + "/savings")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(savingsRequest)))
+                                .andExpect(status().isCreated());
+
+                // Lock budget
+                mockMvc.perform(put("/api/budgets/" + budgetId + "/lock"))
+                                .andExpect(status().isOk());
+
+                // Get todo item
+                String todoListResponse = mockMvc.perform(get("/api/budgets/" + budgetId + "/todo-list"))
+                                .andExpect(status().isOk())
+                                .andReturn().getResponse().getContentAsString();
+
+                String todoItemId = objectMapper.readTree(todoListResponse)
+                                .get("items").get(0).get("id").asText();
+
+                // Unlock budget (deletes todo list and items)
+                mockMvc.perform(put("/api/budgets/" + budgetId + "/unlock"))
+                                .andExpect(status().isOk());
+
+                // When/Then - Try to update deleted todo item, expect 404 since item no longer exists
+                Map<String, Object> updateRequest = new HashMap<>();
+                updateRequest.put("status", "COMPLETED");
+
+                mockMvc.perform(put("/api/budgets/" + budgetId + "/todo-list/items/" + todoItemId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.error").value("Todo item not found"));
+        }
+
+        @Test
+        void shouldValidateTodoItemBelongsToBudget() throws Exception {
+                // Given - Create two locked budgets with separate todo lists
+                org.example.axelnyman.main.domain.model.BankAccount account1 = createBankAccountEntity("Checking5",
+                                "Main", new BigDecimal("5000.00"));
+                org.example.axelnyman.main.domain.model.BankAccount account2 = createBankAccountEntity("Checking6",
+                                "Main", new BigDecimal("5000.00"));
+
+                // Budget 1
+                Map<String, Object> budget1Request = createBudgetRequest(4, 2025);
+                String budget1Response = mockMvc.perform(post("/api/budgets")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(budget1Request)))
+                                .andExpect(status().isCreated())
+                                .andReturn().getResponse().getContentAsString();
+
+                String budget1Id = objectMapper.readTree(budget1Response).get("id").asText();
+
+                Map<String, Object> income1Request = new HashMap<>();
+                income1Request.put("bankAccountId", account1.getId().toString());
+                income1Request.put("name", "Salary");
+                income1Request.put("amount", 3000.00);
+                mockMvc.perform(post("/api/budgets/" + budget1Id + "/income")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(income1Request)))
+                                .andExpect(status().isCreated());
+
+                Map<String, Object> expense1Request = new HashMap<>();
+                expense1Request.put("bankAccountId", account1.getId().toString());
+                expense1Request.put("name", "Rent");
+                expense1Request.put("amount", 2000.00);
+                expense1Request.put("isManual", true);
+                mockMvc.perform(post("/api/budgets/" + budget1Id + "/expenses")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(expense1Request)))
+                                .andExpect(status().isCreated());
+
+                Map<String, Object> savings1Request = new HashMap<>();
+                savings1Request.put("bankAccountId", account1.getId().toString());
+                savings1Request.put("name", "Emergency");
+                savings1Request.put("amount", 1000.00);
+                mockMvc.perform(post("/api/budgets/" + budget1Id + "/savings")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(savings1Request)))
+                                .andExpect(status().isCreated());
+
+                mockMvc.perform(put("/api/budgets/" + budget1Id + "/lock"))
+                                .andExpect(status().isOk());
+
+                // Budget 2
+                Map<String, Object> budget2Request = createBudgetRequest(5, 2025);
+                String budget2Response = mockMvc.perform(post("/api/budgets")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(budget2Request)))
+                                .andExpect(status().isCreated())
+                                .andReturn().getResponse().getContentAsString();
+
+                String budget2Id = objectMapper.readTree(budget2Response).get("id").asText();
+
+                Map<String, Object> income2Request = new HashMap<>();
+                income2Request.put("bankAccountId", account2.getId().toString());
+                income2Request.put("name", "Salary");
+                income2Request.put("amount", 3000.00);
+                mockMvc.perform(post("/api/budgets/" + budget2Id + "/income")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(income2Request)))
+                                .andExpect(status().isCreated());
+
+                Map<String, Object> expense2Request = new HashMap<>();
+                expense2Request.put("bankAccountId", account2.getId().toString());
+                expense2Request.put("name", "Rent");
+                expense2Request.put("amount", 2000.00);
+                expense2Request.put("isManual", true);
+                mockMvc.perform(post("/api/budgets/" + budget2Id + "/expenses")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(expense2Request)))
+                                .andExpect(status().isCreated());
+
+                Map<String, Object> savings2Request = new HashMap<>();
+                savings2Request.put("bankAccountId", account2.getId().toString());
+                savings2Request.put("name", "Emergency");
+                savings2Request.put("amount", 1000.00);
+                mockMvc.perform(post("/api/budgets/" + budget2Id + "/savings")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(savings2Request)))
+                                .andExpect(status().isCreated());
+
+                mockMvc.perform(put("/api/budgets/" + budget2Id + "/lock"))
+                                .andExpect(status().isOk());
+
+                // Get todo item from budget 1
+                String todoList1Response = mockMvc.perform(get("/api/budgets/" + budget1Id + "/todo-list"))
+                                .andExpect(status().isOk())
+                                .andReturn().getResponse().getContentAsString();
+
+                String todoItem1Id = objectMapper.readTree(todoList1Response)
+                                .get("items").get(0).get("id").asText();
+
+                // When/Then - Try to update budget 1's todo item using budget 2's ID
+                Map<String, Object> updateRequest = new HashMap<>();
+                updateRequest.put("status", "COMPLETED");
+
+                mockMvc.perform(put("/api/budgets/" + budget2Id + "/todo-list/items/" + todoItem1Id)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.error").value("Todo item does not belong to this budget"));
+        }
+
         // Helper method to create budget request
         private Map<String, Object> createBudgetRequest(Integer month, Integer year) {
                 Map<String, Object> request = new HashMap<>();
