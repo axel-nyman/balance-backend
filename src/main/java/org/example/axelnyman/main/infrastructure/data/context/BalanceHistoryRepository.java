@@ -2,6 +2,8 @@ package org.example.axelnyman.main.infrastructure.data.context;
 
 import org.example.axelnyman.main.domain.model.BalanceHistory;
 import org.example.axelnyman.main.domain.model.BalanceHistorySource;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -14,4 +16,6 @@ public interface BalanceHistoryRepository extends JpaRepository<BalanceHistory, 
     List<BalanceHistory> findAllByBudgetIdAndSource(UUID budgetId, BalanceHistorySource source);
 
     void deleteAllByBudgetId(UUID budgetId);
+
+    Page<BalanceHistory> findAllByBankAccountIdOrderByChangeDateDesc(UUID bankAccountId, Pageable pageable);
 }

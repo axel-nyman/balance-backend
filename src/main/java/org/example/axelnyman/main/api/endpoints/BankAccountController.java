@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.example.axelnyman.main.domain.abstracts.IDomainService;
+import org.example.axelnyman.main.domain.dtos.BalanceHistoryDtos.*;
 import org.example.axelnyman.main.domain.dtos.BankAccountDtos.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -80,5 +81,18 @@ public class BankAccountController {
     public ResponseEntity<Void> deleteBankAccount(@PathVariable UUID id) {
         domainService.deleteBankAccount(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/balance-history")
+    @Operation(summary = "Get balance history", description = "Retrieve paginated balance history for a bank account, sorted by date descending")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Balance history retrieved successfully"),
+            @ApiResponse(responseCode = "404", description = "Bank account not found")
+    })
+    public ResponseEntity<BalanceHistoryPageResponse> getBalanceHistory(
+            @PathVariable UUID id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(domainService.getBalanceHistory(id, page, size));
     }
 }

@@ -952,6 +952,170 @@ public class BankAccountIntegrationTest {
                                 .andExpect(jsonPath("$.error").exists());
         }
 
+        // ========================================
+        // Story 29: View Balance History Tests
+        // ========================================
+
+        @Test
+        void shouldRetrieveBalanceHistoryWithDefaultPagination() throws Exception {
+                // Given - account with balance history
+                var account = createBankAccountEntity("Test Account", "For history", new BigDecimal("1000.00"));
+                createBalanceHistoryEntry(account.getId(), new BigDecimal("1000.00"), new BigDecimal("1000.00"), "Initial balance");
+                createBalanceHistoryEntry(account.getId(), new BigDecimal("1500.00"), new BigDecimal("500.00"), "Deposit");
+                createBalanceHistoryEntry(account.getId(), new BigDecimal("1200.00"), new BigDecimal("-300.00"), "Withdrawal");
+
+                // When & Then - should use default pagination (page=0, size=20)
+                mockMvc.perform(get("/api/bank-accounts/" + account.getId() + "/balance-history")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.content", hasSize(3)))
+                                .andExpect(jsonPath("$.page.size", is(20)))
+                                .andExpect(jsonPath("$.page.number", is(0)))
+                                .andExpect(jsonPath("$.page.totalElements", is(3)))
+                                .andExpect(jsonPath("$.page.totalPages", is(1)));
+        }
+
+        @Test
+        void shouldRetrieveBalanceHistoryWithCustomPagination() throws Exception {
+                // Given - account with 5 balance history entries
+                var account = createBankAccountEntity("Test Account", "For pagination", new BigDecimal("1000.00"));
+                for (int i = 1; i <= 5; i++) {
+                        createBalanceHistoryEntry(account.getId(), new BigDecimal("1000.00"), new BigDecimal("100.00"), "Entry " + i);
+                }
+
+                // When & Then - request page 1 with size 2 (should get entries 3-4)
+                mockMvc.perform(get("/api/bank-accounts/" + account.getId() + "/balance-history?page=1&size=2")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.content", hasSize(2)))
+                                .andExpect(jsonPath("$.page.size", is(2)))
+                                .andExpect(jsonPath("$.page.number", is(1)))
+                                .andExpect(jsonPath("$.page.totalElements", is(5)))
+                                .andExpect(jsonPath("$.page.totalPages", is(3)));
+        }
+
+        @Test
+        void shouldSortBalanceHistoryByDateDescending() throws Exception {
+                // Given - account with balance history at different times
+                var account = createBankAccountEntity("Test Account", "For sorting", new BigDecimal("1000.00"));
+
+                // Create entries with slight delays to ensure different timestamps
+                createBalanceHistoryEntry(account.getId(), new BigDecimal("1000.00"), new BigDecimal("1000.00"), "First");
+                Thread.sleep(50);
+                createBalanceHistoryEntry(account.getId(), new BigDecimal("1100.00"), new BigDecimal("100.00"), "Second");
+                Thread.sleep(50);
+                createBalanceHistoryEntry(account.getId(), new BigDecimal("1200.00"), new BigDecimal("100.00"), "Third");
+
+                // When & Then - should return newest first
+                mockMvc.perform(get("/api/bank-accounts/" + account.getId() + "/balance-history")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.content[0].comment", is("Third")))
+                                .andExpect(jsonPath("$.content[1].comment", is("Second")))
+                                .andExpect(jsonPath("$.content[2].comment", is("First")));
+        }
+
+        @Test
+        void shouldDifferentiateBetweenManualAndAutomaticSources() throws Exception {
+                // Given - account with both MANUAL and AUTOMATIC balance history
+                var account = createBankAccountEntity("Test Account", "For source types", new BigDecimal("1000.00"));
+
+                // Create MANUAL entry
+                var manualEntry = new org.example.axelnyman.main.domain.model.BalanceHistory(
+                        account.getId(), new BigDecimal("1000.00"), new BigDecimal("1000.00"),
+                        "Manual entry", org.example.axelnyman.main.domain.model.BalanceHistorySource.MANUAL, null);
+                balanceHistoryRepository.save(manualEntry);
+
+                // Create AUTOMATIC entry with budgetId
+                var automaticEntry = new org.example.axelnyman.main.domain.model.BalanceHistory(
+                        account.getId(), new BigDecimal("1500.00"), new BigDecimal("500.00"),
+                        "Automatic entry", org.example.axelnyman.main.domain.model.BalanceHistorySource.AUTOMATIC, UUID.randomUUID());
+                balanceHistoryRepository.save(automaticEntry);
+
+                // When & Then - should differentiate sources
+                mockMvc.perform(get("/api/bank-accounts/" + account.getId() + "/balance-history")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.content", hasSize(2)))
+                                .andExpect(jsonPath("$.content[*].source", containsInAnyOrder("MANUAL", "AUTOMATIC")));
+        }
+
+        @Test
+        void shouldIncludeBudgetIdForAutomaticEntries() throws Exception {
+                // Given - account with MANUAL (no budgetId) and AUTOMATIC (with budgetId) entries
+                var account = createBankAccountEntity("Test Account", "For budgetId check", new BigDecimal("1000.00"));
+                UUID testBudgetId = UUID.randomUUID();
+
+                // Create MANUAL entry (budgetId should be null)
+                var manualEntry = new org.example.axelnyman.main.domain.model.BalanceHistory(
+                        account.getId(), new BigDecimal("1000.00"), new BigDecimal("1000.00"),
+                        "Manual entry", org.example.axelnyman.main.domain.model.BalanceHistorySource.MANUAL, null);
+                balanceHistoryRepository.save(manualEntry);
+
+                // Create AUTOMATIC entry (budgetId should be present)
+                var automaticEntry = new org.example.axelnyman.main.domain.model.BalanceHistory(
+                        account.getId(), new BigDecimal("1500.00"), new BigDecimal("500.00"),
+                        "Automatic entry", org.example.axelnyman.main.domain.model.BalanceHistorySource.AUTOMATIC, testBudgetId);
+                balanceHistoryRepository.save(automaticEntry);
+
+                // When & Then
+                mockMvc.perform(get("/api/bank-accounts/" + account.getId() + "/balance-history")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.content", hasSize(2)))
+                                .andExpect(jsonPath("$.content[?(@.source == 'AUTOMATIC')].budgetId", hasItem(testBudgetId.toString())))
+                                .andExpect(jsonPath("$.content[?(@.source == 'MANUAL')].budgetId", hasItem(nullValue())));
+        }
+
+        @Test
+        void shouldReturnEmptyContentWhenNoHistoryExists() throws Exception {
+                // Given - account without any balance history
+                var account = createBankAccountEntity("Empty Account", "No history", new BigDecimal("0.00"));
+
+                // Clear any auto-created history
+                balanceHistoryRepository.deleteAll();
+
+                // When & Then - should return empty content with valid page metadata
+                mockMvc.perform(get("/api/bank-accounts/" + account.getId() + "/balance-history")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.content", hasSize(0)))
+                                .andExpect(jsonPath("$.page.size", is(20)))
+                                .andExpect(jsonPath("$.page.number", is(0)))
+                                .andExpect(jsonPath("$.page.totalElements", is(0)))
+                                .andExpect(jsonPath("$.page.totalPages", is(0)));
+        }
+
+        @Test
+        void shouldHandlePaginationBeyondAvailableData() throws Exception {
+                // Given - account with only 3 balance history entries
+                var account = createBankAccountEntity("Test Account", "Limited history", new BigDecimal("1000.00"));
+                createBalanceHistoryEntry(account.getId(), new BigDecimal("1000.00"), new BigDecimal("1000.00"), "Entry 1");
+                createBalanceHistoryEntry(account.getId(), new BigDecimal("1100.00"), new BigDecimal("100.00"), "Entry 2");
+                createBalanceHistoryEntry(account.getId(), new BigDecimal("1200.00"), new BigDecimal("100.00"), "Entry 3");
+
+                // When & Then - request page 5 (beyond available data)
+                mockMvc.perform(get("/api/bank-accounts/" + account.getId() + "/balance-history?page=5&size=20")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.content", hasSize(0)))
+                                .andExpect(jsonPath("$.page.number", is(5)))
+                                .andExpect(jsonPath("$.page.totalElements", is(3)))
+                                .andExpect(jsonPath("$.page.totalPages", is(1)));
+        }
+
+        @Test
+        void shouldReturn404WhenBankAccountNotFoundForHistory() throws Exception {
+                // Given - non-existent account ID
+                UUID nonExistentId = UUID.randomUUID();
+
+                // When & Then - should return 404
+                mockMvc.perform(get("/api/bank-accounts/" + nonExistentId + "/balance-history")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.error").exists());
+        }
+
         // Helper methods for test data creation
         private void createBankAccount(String name, String description, BigDecimal initialBalance) throws Exception {
                 CreateBankAccountRequest request = new CreateBankAccountRequest(name, description, initialBalance);
@@ -968,5 +1132,12 @@ public class BankAccountIntegrationTest {
                 account.setDescription(description);
                 account.setCurrentBalance(initialBalance);
                 return bankAccountRepository.save(account);
+        }
+
+        private void createBalanceHistoryEntry(UUID bankAccountId, BigDecimal balance, BigDecimal changeAmount, String comment) {
+                org.example.axelnyman.main.domain.model.BalanceHistory entry = new org.example.axelnyman.main.domain.model.BalanceHistory(
+                        bankAccountId, balance, changeAmount, comment,
+                        org.example.axelnyman.main.domain.model.BalanceHistorySource.MANUAL, null);
+                balanceHistoryRepository.save(entry);
         }
 }

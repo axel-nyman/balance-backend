@@ -1,5 +1,6 @@
 package org.example.axelnyman.main.domain.abstracts;
 
+import org.example.axelnyman.main.domain.dtos.BalanceHistoryDtos.*;
 import org.example.axelnyman.main.domain.dtos.BankAccountDtos.*;
 import org.example.axelnyman.main.domain.dtos.BudgetDtos.*;
 import org.example.axelnyman.main.domain.dtos.RecurringExpenseDtos.*;
@@ -25,6 +26,8 @@ public interface IDomainService {
     BalanceUpdateResponse updateBankAccountBalance(UUID id, UpdateBalanceRequest request);
 
     void deleteBankAccount(UUID id);
+
+    BalanceHistoryPageResponse getBalanceHistory(UUID bankAccountId, int page, int size);
 
     // Recurring Expense operations
     RecurringExpenseResponse createRecurringExpense(CreateRecurringExpenseRequest request);

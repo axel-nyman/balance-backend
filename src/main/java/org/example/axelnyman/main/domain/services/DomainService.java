@@ -2,10 +2,12 @@ package org.example.axelnyman.main.domain.services;
 
 import org.example.axelnyman.main.domain.abstracts.IDataService;
 import org.example.axelnyman.main.domain.abstracts.IDomainService;
+import org.example.axelnyman.main.domain.dtos.BalanceHistoryDtos.*;
 import org.example.axelnyman.main.domain.dtos.BankAccountDtos.*;
 import org.example.axelnyman.main.domain.dtos.BudgetDtos.*;
 import org.example.axelnyman.main.domain.dtos.RecurringExpenseDtos.*;
 import org.example.axelnyman.main.domain.dtos.TodoDtos.*;
+import org.example.axelnyman.main.domain.extensions.BalanceHistoryExtensions;
 import org.example.axelnyman.main.domain.extensions.BankAccountExtensions;
 import org.example.axelnyman.main.domain.extensions.BudgetExpenseExtensions;
 import org.example.axelnyman.main.domain.extensions.BudgetExtensions;
@@ -44,6 +46,9 @@ import org.example.axelnyman.main.shared.exceptions.NotMostRecentBudgetException
 import org.example.axelnyman.main.shared.exceptions.TodoItemNotFoundException;
 import org.example.axelnyman.main.shared.exceptions.TodoListNotFoundException;
 import org.example.axelnyman.main.shared.exceptions.UnlockedBudgetExistsException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -204,6 +209,26 @@ public class DomainService implements IDomainService {
 
         // Perform soft delete
         dataService.deleteBankAccount(id);
+    }
+
+    @Override
+    public BalanceHistoryPageResponse getBalanceHistory(UUID bankAccountId, int page, int size) {
+        // Validate bank account exists and is not deleted
+        BankAccount account = dataService.getBankAccountById(bankAccountId)
+                .orElseThrow(() -> new BankAccountNotFoundException("Bank account not found with id: " + bankAccountId));
+
+        if (account.getDeletedAt() != null) {
+            throw new BankAccountNotFoundException("Bank account not found with id: " + bankAccountId);
+        }
+
+        // Create pageable with default size 20 if not specified
+        Pageable pageable = PageRequest.of(page, size);
+
+        // Retrieve paginated balance history from data service
+        Page<BalanceHistory> historyPage = dataService.getBalanceHistoryByBankAccountId(bankAccountId, pageable);
+
+        // Convert to DTO and return
+        return BalanceHistoryExtensions.toPageResponse(historyPage);
     }
 
     @Override

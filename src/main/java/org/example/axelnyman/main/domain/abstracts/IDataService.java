@@ -11,6 +11,8 @@ import org.example.axelnyman.main.domain.model.BudgetStatus;
 import org.example.axelnyman.main.domain.model.RecurringExpense;
 import org.example.axelnyman.main.domain.model.TodoItem;
 import org.example.axelnyman.main.domain.model.TodoList;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -53,6 +55,8 @@ public interface IDataService {
 
     // Balance History operations
     BalanceHistory saveBalanceHistory(BalanceHistory balanceHistory);
+
+    Page<BalanceHistory> getBalanceHistoryByBankAccountId(UUID bankAccountId, Pageable pageable);
 
     // Budget operations
     Budget saveBudget(Budget budget);

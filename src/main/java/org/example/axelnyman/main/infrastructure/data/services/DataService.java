@@ -20,6 +20,8 @@ import org.example.axelnyman.main.infrastructure.data.context.BudgetSavingsRepos
 import org.example.axelnyman.main.infrastructure.data.context.RecurringExpenseRepository;
 import org.example.axelnyman.main.infrastructure.data.context.TodoItemRepository;
 import org.example.axelnyman.main.infrastructure.data.context.TodoListRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -134,6 +136,11 @@ public class DataService implements IDataService {
     @Override
     public BalanceHistory saveBalanceHistory(BalanceHistory balanceHistory) {
         return balanceHistoryRepository.save(balanceHistory);
+    }
+
+    @Override
+    public Page<BalanceHistory> getBalanceHistoryByBankAccountId(java.util.UUID bankAccountId, Pageable pageable) {
+        return balanceHistoryRepository.findAllByBankAccountIdOrderByChangeDateDesc(bankAccountId, pageable);
     }
 
     @Override
