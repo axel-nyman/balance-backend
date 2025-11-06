@@ -47,7 +47,9 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class DomainService implements IDomainService {
@@ -724,6 +726,9 @@ public class DomainService implements IDomainService {
         // Generate todo list for this budget (Story 25)
         generateTodoList(budgetId);
 
+        // Update account balances based on savings (Story 26)
+        updateBalancesForBudget(budgetId, savedBudget);
+
         // Update recurring expenses for this budget
         updateRecurringExpensesForBudget(budgetId, lockedAt);
 
@@ -751,6 +756,53 @@ public class DomainService implements IDomainService {
             recurringExpense.setLastUsedDate(lockedAt);
             recurringExpense.setLastUsedBudgetId(budgetId);
             dataService.saveRecurringExpense(recurringExpense);
+        }
+    }
+
+    // Story 26: Update account balances on budget lock
+    private void updateBalancesForBudget(UUID budgetId, Budget budget) {
+        // Get all savings for this budget
+        List<BudgetSavings> allSavings = dataService.getBudgetSavingsByBudgetId(budgetId);
+
+        // Group savings by bankAccountId and sum amounts
+        Map<UUID, BigDecimal> savingsByAccount = allSavings.stream()
+                .collect(Collectors.groupingBy(
+                        BudgetSavings::getBankAccountId,
+                        Collectors.reducing(
+                                BigDecimal.ZERO,
+                                BudgetSavings::getAmount,
+                                BigDecimal::add
+                        )
+                ));
+
+        // Update each account that has savings
+        for (Map.Entry<UUID, BigDecimal> entry : savingsByAccount.entrySet()) {
+            UUID accountId = entry.getKey();
+            BigDecimal totalSavings = entry.getValue();
+
+            // Load bank account
+            BankAccount account = dataService.getBankAccountById(accountId)
+                    .orElseThrow(() -> new BankAccountNotFoundException("Bank account not found with id: " + accountId));
+
+            // Calculate new balance
+            BigDecimal oldBalance = account.getCurrentBalance();
+            BigDecimal newBalance = oldBalance.add(totalSavings);
+
+            // Update account balance
+            account.setCurrentBalance(newBalance);
+            dataService.saveBankAccount(account);
+
+            // Create BalanceHistory entry
+            String comment = "Budget lock for " + budget.getMonth() + "/" + budget.getYear();
+            BalanceHistory history = new BalanceHistory(
+                    accountId,
+                    newBalance,
+                    totalSavings,
+                    comment,
+                    BalanceHistorySource.AUTOMATIC,
+                    budgetId
+            );
+            dataService.saveBalanceHistory(history);
         }
     }
 

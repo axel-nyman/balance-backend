@@ -84,6 +84,9 @@ public class BudgetIntegrationTest {
     private org.example.axelnyman.main.infrastructure.data.context.TodoItemRepository todoItemRepository;
 
     @Autowired
+    private org.example.axelnyman.main.infrastructure.data.context.BalanceHistoryRepository balanceHistoryRepository;
+
+    @Autowired
     private ObjectMapper objectMapper;
 
     private MockMvc mockMvc;
@@ -102,6 +105,7 @@ public class BudgetIntegrationTest {
         budgetSavingsRepository.deleteAll();
         recurringExpenseRepository.deleteAll();
         budgetRepository.deleteAll();
+        balanceHistoryRepository.deleteAll();
         bankAccountRepository.deleteAll();
     }
 
@@ -4998,6 +5002,534 @@ public class BudgetIntegrationTest {
                         false
                 );
         return recurringExpenseRepository.save(expense);
+    }
+
+    // ========== Story 26: Update Account Balances on Lock ==========
+
+    @Test
+    void shouldUpdateBalanceOnLockWithSingleAccount() throws Exception {
+        // Given - Create budget with income, expenses, and savings to single account
+        Map<String, Object> budgetRequest = createBudgetRequest(6, 2024);
+        String budgetResponse = mockMvc.perform(post("/api/budgets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(budgetRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String budgetId = objectMapper.readTree(budgetResponse).get("id").asText();
+
+        // Create bank account with initial balance
+        org.example.axelnyman.main.domain.model.BankAccount account =
+                createBankAccountEntity("Checking", "Main account", new BigDecimal("1000.00"));
+        BigDecimal initialBalance = account.getCurrentBalance();
+
+        // Add income: 500.00
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("bankAccountId", account.getId().toString());
+        incomeRequest.put("name", "Salary");
+        incomeRequest.put("amount", 500.00);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isCreated());
+
+        // Add expense: 300.00
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("bankAccountId", account.getId().toString());
+        expenseRequest.put("name", "Rent");
+        expenseRequest.put("amount", 300.00);
+        expenseRequest.put("isManual", true);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isCreated());
+
+        // Add savings: 200.00 (500 - 300 - 200 = 0)
+        Map<String, Object> savingsRequest = new HashMap<>();
+        savingsRequest.put("bankAccountId", account.getId().toString());
+        savingsRequest.put("name", "Emergency Fund");
+        savingsRequest.put("amount", 200.00);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(savingsRequest)))
+                .andExpect(status().isCreated());
+
+        // When - Lock the budget
+        mockMvc.perform(put("/api/budgets/" + budgetId + "/lock"))
+                .andExpect(status().isOk());
+
+        // Then - Verify account balance increased by savings amount only
+        org.example.axelnyman.main.domain.model.BankAccount updatedAccount =
+                bankAccountRepository.findById(account.getId()).orElseThrow();
+        BigDecimal expectedBalance = initialBalance.add(new BigDecimal("200.00"));
+        assertThat(updatedAccount.getCurrentBalance()).isEqualByComparingTo(expectedBalance);
+    }
+
+    @Test
+    void shouldUpdateBalancesWithMultipleAccounts() throws Exception {
+        // Given - Create budget with savings distributed across 3 accounts
+        Map<String, Object> budgetRequest = createBudgetRequest(6, 2024);
+        String budgetResponse = mockMvc.perform(post("/api/budgets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(budgetRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String budgetId = objectMapper.readTree(budgetResponse).get("id").asText();
+
+        // Create three bank accounts with initial balances
+        org.example.axelnyman.main.domain.model.BankAccount accountA =
+                createBankAccountEntity("Account A", "First account", new BigDecimal("1000.00"));
+        org.example.axelnyman.main.domain.model.BankAccount accountB =
+                createBankAccountEntity("Account B", "Second account", new BigDecimal("2000.00"));
+        org.example.axelnyman.main.domain.model.BankAccount accountC =
+                createBankAccountEntity("Account C", "Third account", new BigDecimal("3000.00"));
+
+        BigDecimal initialBalanceA = accountA.getCurrentBalance();
+        BigDecimal initialBalanceB = accountB.getCurrentBalance();
+        BigDecimal initialBalanceC = accountC.getCurrentBalance();
+
+        // Add income from Account A: 600.00
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("bankAccountId", accountA.getId().toString());
+        incomeRequest.put("name", "Salary");
+        incomeRequest.put("amount", 600.00);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isCreated());
+
+        // Add expense from Account B: 200.00
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("bankAccountId", accountB.getId().toString());
+        expenseRequest.put("name", "Rent");
+        expenseRequest.put("amount", 200.00);
+        expenseRequest.put("isManual", true);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isCreated());
+
+        // Add savings to Account A: 100.00
+        Map<String, Object> savingsRequestA = new HashMap<>();
+        savingsRequestA.put("bankAccountId", accountA.getId().toString());
+        savingsRequestA.put("name", "Emergency Fund");
+        savingsRequestA.put("amount", 100.00);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(savingsRequestA)))
+                .andExpect(status().isCreated());
+
+        // Add savings to Account B: 150.00
+        Map<String, Object> savingsRequestB = new HashMap<>();
+        savingsRequestB.put("bankAccountId", accountB.getId().toString());
+        savingsRequestB.put("name", "Vacation");
+        savingsRequestB.put("amount", 150.00);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(savingsRequestB)))
+                .andExpect(status().isCreated());
+
+        // Add savings to Account C: 150.00 (600 - 200 - 100 - 150 - 150 = 0)
+        Map<String, Object> savingsRequestC = new HashMap<>();
+        savingsRequestC.put("bankAccountId", accountC.getId().toString());
+        savingsRequestC.put("name", "Investment");
+        savingsRequestC.put("amount", 150.00);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(savingsRequestC)))
+                .andExpect(status().isCreated());
+
+        // When - Lock the budget
+        mockMvc.perform(put("/api/budgets/" + budgetId + "/lock"))
+                .andExpect(status().isOk());
+
+        // Then - Verify each account balance increased by its respective savings amount
+        org.example.axelnyman.main.domain.model.BankAccount updatedAccountA =
+                bankAccountRepository.findById(accountA.getId()).orElseThrow();
+        org.example.axelnyman.main.domain.model.BankAccount updatedAccountB =
+                bankAccountRepository.findById(accountB.getId()).orElseThrow();
+        org.example.axelnyman.main.domain.model.BankAccount updatedAccountC =
+                bankAccountRepository.findById(accountC.getId()).orElseThrow();
+
+        assertThat(updatedAccountA.getCurrentBalance())
+                .isEqualByComparingTo(initialBalanceA.add(new BigDecimal("100.00")));
+        assertThat(updatedAccountB.getCurrentBalance())
+                .isEqualByComparingTo(initialBalanceB.add(new BigDecimal("150.00")));
+        assertThat(updatedAccountC.getCurrentBalance())
+                .isEqualByComparingTo(initialBalanceC.add(new BigDecimal("150.00")));
+    }
+
+    @Test
+    void shouldSumMultipleSavingsItemsToSameAccount() throws Exception {
+        // Given - Create budget with multiple savings items to the same account
+        Map<String, Object> budgetRequest = createBudgetRequest(6, 2024);
+        String budgetResponse = mockMvc.perform(post("/api/budgets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(budgetRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String budgetId = objectMapper.readTree(budgetResponse).get("id").asText();
+
+        // Create bank account
+        org.example.axelnyman.main.domain.model.BankAccount account =
+                createBankAccountEntity("Savings", "Savings account", new BigDecimal("5000.00"));
+        BigDecimal initialBalance = account.getCurrentBalance();
+
+        // Add income: 1000.00
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("bankAccountId", account.getId().toString());
+        incomeRequest.put("name", "Salary");
+        incomeRequest.put("amount", 1000.00);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isCreated());
+
+        // Add expense: 400.00
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("bankAccountId", account.getId().toString());
+        expenseRequest.put("name", "Bills");
+        expenseRequest.put("amount", 400.00);
+        expenseRequest.put("isManual", true);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isCreated());
+
+        // Add three savings items to the same account
+        Map<String, Object> savings1 = new HashMap<>();
+        savings1.put("bankAccountId", account.getId().toString());
+        savings1.put("name", "Emergency Fund");
+        savings1.put("amount", 200.00);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(savings1)))
+                .andExpect(status().isCreated());
+
+        Map<String, Object> savings2 = new HashMap<>();
+        savings2.put("bankAccountId", account.getId().toString());
+        savings2.put("name", "Vacation Fund");
+        savings2.put("amount", 250.00);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(savings2)))
+                .andExpect(status().isCreated());
+
+        Map<String, Object> savings3 = new HashMap<>();
+        savings3.put("bankAccountId", account.getId().toString());
+        savings3.put("name", "Investment");
+        savings3.put("amount", 150.00);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(savings3)))
+                .andExpect(status().isCreated());
+        // Total: 1000 - 400 - 200 - 250 - 150 = 0
+
+        // When - Lock the budget
+        mockMvc.perform(put("/api/budgets/" + budgetId + "/lock"))
+                .andExpect(status().isOk());
+
+        // Then - Verify account balance increased by sum of all savings (200 + 250 + 150 = 600)
+        org.example.axelnyman.main.domain.model.BankAccount updatedAccount =
+                bankAccountRepository.findById(account.getId()).orElseThrow();
+        BigDecimal expectedBalance = initialBalance.add(new BigDecimal("600.00"));
+        assertThat(updatedAccount.getCurrentBalance()).isEqualByComparingTo(expectedBalance);
+    }
+
+    @Test
+    void shouldNotAffectAccountsWithoutSavings() throws Exception {
+        // Given - Create budget with 3 accounts, but savings only on 2 of them
+        Map<String, Object> budgetRequest = createBudgetRequest(6, 2024);
+        String budgetResponse = mockMvc.perform(post("/api/budgets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(budgetRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String budgetId = objectMapper.readTree(budgetResponse).get("id").asText();
+
+        // Create three bank accounts
+        org.example.axelnyman.main.domain.model.BankAccount accountA =
+                createBankAccountEntity("Account A", "Has income and savings", new BigDecimal("1000.00"));
+        org.example.axelnyman.main.domain.model.BankAccount accountB =
+                createBankAccountEntity("Account B", "Has savings only", new BigDecimal("2000.00"));
+        org.example.axelnyman.main.domain.model.BankAccount accountC =
+                createBankAccountEntity("Account C", "No savings", new BigDecimal("3000.00"));
+
+        BigDecimal initialBalanceA = accountA.getCurrentBalance();
+        BigDecimal initialBalanceB = accountB.getCurrentBalance();
+        BigDecimal initialBalanceC = accountC.getCurrentBalance();
+
+        // Add income from Account A: 400.00
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("bankAccountId", accountA.getId().toString());
+        incomeRequest.put("name", "Salary");
+        incomeRequest.put("amount", 400.00);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isCreated());
+
+        // Add expense from Account C: 200.00
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("bankAccountId", accountC.getId().toString());
+        expenseRequest.put("name", "Bills");
+        expenseRequest.put("amount", 200.00);
+        expenseRequest.put("isManual", true);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isCreated());
+
+        // Add savings to Account A: 100.00
+        Map<String, Object> savingsA = new HashMap<>();
+        savingsA.put("bankAccountId", accountA.getId().toString());
+        savingsA.put("name", "Emergency Fund");
+        savingsA.put("amount", 100.00);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(savingsA)))
+                .andExpect(status().isCreated());
+
+        // Add savings to Account B: 100.00
+        Map<String, Object> savingsB = new HashMap<>();
+        savingsB.put("bankAccountId", accountB.getId().toString());
+        savingsB.put("name", "Investment");
+        savingsB.put("amount", 100.00);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(savingsB)))
+                .andExpect(status().isCreated());
+        // Total: 400 - 200 - 100 - 100 = 0
+        // Account C has no savings, should not be affected
+
+        // When - Lock the budget
+        mockMvc.perform(put("/api/budgets/" + budgetId + "/lock"))
+                .andExpect(status().isOk());
+
+        // Then - Verify only accounts with savings are updated
+        org.example.axelnyman.main.domain.model.BankAccount updatedAccountA =
+                bankAccountRepository.findById(accountA.getId()).orElseThrow();
+        org.example.axelnyman.main.domain.model.BankAccount updatedAccountB =
+                bankAccountRepository.findById(accountB.getId()).orElseThrow();
+        org.example.axelnyman.main.domain.model.BankAccount updatedAccountC =
+                bankAccountRepository.findById(accountC.getId()).orElseThrow();
+
+        // Accounts A and B should have increased balances
+        assertThat(updatedAccountA.getCurrentBalance())
+                .isEqualByComparingTo(initialBalanceA.add(new BigDecimal("100.00")));
+        assertThat(updatedAccountB.getCurrentBalance())
+                .isEqualByComparingTo(initialBalanceB.add(new BigDecimal("100.00")));
+        // Account C should remain unchanged
+        assertThat(updatedAccountC.getCurrentBalance())
+                .isEqualByComparingTo(initialBalanceC);
+    }
+
+    @Test
+    void shouldCreateBalanceHistoryEntriesWithCorrectMetadata() throws Exception {
+        // Given - Create budget with savings to multiple accounts
+        Map<String, Object> budgetRequest = createBudgetRequest(6, 2024);
+        String budgetResponse = mockMvc.perform(post("/api/budgets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(budgetRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String budgetId = objectMapper.readTree(budgetResponse).get("id").asText();
+
+        // Create two bank accounts
+        org.example.axelnyman.main.domain.model.BankAccount accountA =
+                createBankAccountEntity("Account A", "First account", new BigDecimal("1000.00"));
+        org.example.axelnyman.main.domain.model.BankAccount accountB =
+                createBankAccountEntity("Account B", "Second account", new BigDecimal("2000.00"));
+
+        // Add income: 500.00
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("bankAccountId", accountA.getId().toString());
+        incomeRequest.put("name", "Salary");
+        incomeRequest.put("amount", 500.00);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isCreated());
+
+        // Add expense: 200.00
+        Map<String, Object> expenseRequest = new HashMap<>();
+        expenseRequest.put("bankAccountId", accountA.getId().toString());
+        expenseRequest.put("name", "Rent");
+        expenseRequest.put("amount", 200.00);
+        expenseRequest.put("isManual", true);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseRequest)))
+                .andExpect(status().isCreated());
+
+        // Add savings to Account A: 150.00
+        Map<String, Object> savingsA = new HashMap<>();
+        savingsA.put("bankAccountId", accountA.getId().toString());
+        savingsA.put("name", "Emergency Fund");
+        savingsA.put("amount", 150.00);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(savingsA)))
+                .andExpect(status().isCreated());
+
+        // Add savings to Account B: 150.00
+        Map<String, Object> savingsB = new HashMap<>();
+        savingsB.put("bankAccountId", accountB.getId().toString());
+        savingsB.put("name", "Investment");
+        savingsB.put("amount", 150.00);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(savingsB)))
+                .andExpect(status().isCreated());
+
+        // When - Lock the budget
+        mockMvc.perform(put("/api/budgets/" + budgetId + "/lock"))
+                .andExpect(status().isOk());
+
+        // Then - Verify BalanceHistory entries were created with correct metadata
+        java.util.List<org.example.axelnyman.main.domain.model.BalanceHistory> historyEntries =
+                balanceHistoryRepository.findAll();
+
+        // Filter to AUTOMATIC entries (initial balance entries will be MANUAL)
+        java.util.List<org.example.axelnyman.main.domain.model.BalanceHistory> automaticEntries = historyEntries.stream()
+                .filter(h -> h.getSource() == org.example.axelnyman.main.domain.model.BalanceHistorySource.AUTOMATIC)
+                .toList();
+
+        // Should have 2 automatic entries (one per account with savings)
+        assertThat(automaticEntries).hasSize(2);
+
+        // Verify metadata for Account A
+        org.example.axelnyman.main.domain.model.BalanceHistory historyA = automaticEntries.stream()
+                .filter(h -> h.getBankAccountId().equals(accountA.getId()))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(historyA.getSource()).isEqualTo(org.example.axelnyman.main.domain.model.BalanceHistorySource.AUTOMATIC);
+        assertThat(historyA.getBudgetId()).isEqualTo(UUID.fromString(budgetId));
+        assertThat(historyA.getChangeAmount()).isEqualByComparingTo(new BigDecimal("150.00"));
+        assertThat(historyA.getBalance()).isEqualByComparingTo(new BigDecimal("1150.00"));
+        assertThat(historyA.getComment()).isEqualTo("Budget lock for 6/2024");
+        assertThat(historyA.getChangeDate()).isNotNull();
+
+        // Verify metadata for Account B
+        org.example.axelnyman.main.domain.model.BalanceHistory historyB = automaticEntries.stream()
+                .filter(h -> h.getBankAccountId().equals(accountB.getId()))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(historyB.getSource()).isEqualTo(org.example.axelnyman.main.domain.model.BalanceHistorySource.AUTOMATIC);
+        assertThat(historyB.getBudgetId()).isEqualTo(UUID.fromString(budgetId));
+        assertThat(historyB.getChangeAmount()).isEqualByComparingTo(new BigDecimal("150.00"));
+        assertThat(historyB.getBalance()).isEqualByComparingTo(new BigDecimal("2150.00"));
+        assertThat(historyB.getComment()).isEqualTo("Budget lock for 6/2024");
+        assertThat(historyB.getChangeDate()).isNotNull();
+    }
+
+    @Test
+    void shouldMatchStoryExampleScenario() throws Exception {
+        // Given - Exact scenario from Story 26
+        Map<String, Object> budgetRequest = createBudgetRequest(6, 2024);
+        String budgetResponse = mockMvc.perform(post("/api/budgets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(budgetRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String budgetId = objectMapper.readTree(budgetResponse).get("id").asText();
+
+        // Create three bank accounts with starting balances
+        org.example.axelnyman.main.domain.model.BankAccount accountA =
+                createBankAccountEntity("Account A", "Account A", new BigDecimal("500.00"));
+        org.example.axelnyman.main.domain.model.BankAccount accountB =
+                createBankAccountEntity("Account B", "Account B", new BigDecimal("300.00"));
+        org.example.axelnyman.main.domain.model.BankAccount accountC =
+                createBankAccountEntity("Account C", "Account C", new BigDecimal("1000.00"));
+
+        // Income: Account A: $500
+        Map<String, Object> incomeRequest = new HashMap<>();
+        incomeRequest.put("bankAccountId", accountA.getId().toString());
+        incomeRequest.put("name", "Salary");
+        incomeRequest.put("amount", 500.00);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/income")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(incomeRequest)))
+                .andExpect(status().isCreated());
+
+        // Expenses: Account B: $100
+        Map<String, Object> expenseB = new HashMap<>();
+        expenseB.put("bankAccountId", accountB.getId().toString());
+        expenseB.put("name", "Expense B");
+        expenseB.put("amount", 100.00);
+        expenseB.put("isManual", true);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseB)))
+                .andExpect(status().isCreated());
+
+        // Expenses: Account C: $100
+        Map<String, Object> expenseC = new HashMap<>();
+        expenseC.put("bankAccountId", accountC.getId().toString());
+        expenseC.put("name", "Expense C");
+        expenseC.put("amount", 100.00);
+        expenseC.put("isManual", true);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(expenseC)))
+                .andExpect(status().isCreated());
+
+        // Savings: Account A: $100
+        Map<String, Object> savingsA = new HashMap<>();
+        savingsA.put("bankAccountId", accountA.getId().toString());
+        savingsA.put("name", "Savings A");
+        savingsA.put("amount", 100.00);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(savingsA)))
+                .andExpect(status().isCreated());
+
+        // Savings: Account B: $100
+        Map<String, Object> savingsB = new HashMap<>();
+        savingsB.put("bankAccountId", accountB.getId().toString());
+        savingsB.put("name", "Savings B");
+        savingsB.put("amount", 100.00);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(savingsB)))
+                .andExpect(status().isCreated());
+
+        // Savings: Account C: $100
+        Map<String, Object> savingsC = new HashMap<>();
+        savingsC.put("bankAccountId", accountC.getId().toString());
+        savingsC.put("name", "Savings C");
+        savingsC.put("amount", 100.00);
+        mockMvc.perform(post("/api/budgets/" + budgetId + "/savings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(savingsC)))
+                .andExpect(status().isCreated());
+        // Budget Balance: 500 - 100 - 100 - 100 - 100 - 100 = 0 ✓
+
+        // When - Lock the budget
+        mockMvc.perform(put("/api/budgets/" + budgetId + "/lock"))
+                .andExpect(status().isOk());
+
+        // Then - Verify balances match story example
+        // Account A: $500 + $100 = $600
+        // Account B: $300 + $100 = $400
+        // Account C: $1000 + $100 = $1100
+        org.example.axelnyman.main.domain.model.BankAccount updatedAccountA =
+                bankAccountRepository.findById(accountA.getId()).orElseThrow();
+        org.example.axelnyman.main.domain.model.BankAccount updatedAccountB =
+                bankAccountRepository.findById(accountB.getId()).orElseThrow();
+        org.example.axelnyman.main.domain.model.BankAccount updatedAccountC =
+                bankAccountRepository.findById(accountC.getId()).orElseThrow();
+
+        assertThat(updatedAccountA.getCurrentBalance()).isEqualByComparingTo(new BigDecimal("600.00"));
+        assertThat(updatedAccountB.getCurrentBalance()).isEqualByComparingTo(new BigDecimal("400.00"));
+        assertThat(updatedAccountC.getCurrentBalance()).isEqualByComparingTo(new BigDecimal("1100.00"));
     }
 
     // ========== Story 25: Generate Todo List on Lock ==========
