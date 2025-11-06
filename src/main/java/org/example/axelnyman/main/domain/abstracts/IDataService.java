@@ -1,6 +1,7 @@
 package org.example.axelnyman.main.domain.abstracts;
 
 import org.example.axelnyman.main.domain.model.BalanceHistory;
+import org.example.axelnyman.main.domain.model.BalanceHistorySource;
 import org.example.axelnyman.main.domain.model.BankAccount;
 import org.example.axelnyman.main.domain.model.Budget;
 import org.example.axelnyman.main.domain.model.BudgetExpense;
@@ -120,4 +121,13 @@ public interface IDataService {
     void deleteTodoListByBudgetId(UUID budgetId);
 
     void deleteTodoList(UUID todoListId);
+
+    // Budget Unlock operations (Story 27)
+    Optional<Budget> getMostRecentBudget();
+
+    List<BalanceHistory> getBalanceHistoryByBudgetIdAndSource(UUID budgetId, BalanceHistorySource source);
+
+    void deleteBalanceHistoryByBudgetId(UUID budgetId);
+
+    List<Budget> findLockedBudgetsUsingRecurringExpense(UUID recurringExpenseId, UUID excludeBudgetId);
 }

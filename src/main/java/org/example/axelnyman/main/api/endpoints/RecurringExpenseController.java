@@ -35,6 +35,16 @@ public class RecurringExpenseController {
                 .body(domainService.createRecurringExpense(request));
     }
 
+    @GetMapping("/{id}")
+    @Operation(summary = "Get recurring expense by ID", description = "Retrieve a single recurring expense template by its ID")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Recurring expense retrieved successfully"),
+            @ApiResponse(responseCode = "404", description = "Recurring expense not found")
+    })
+    public ResponseEntity<RecurringExpenseResponse> getRecurringExpenseById(@PathVariable UUID id) {
+        return ResponseEntity.ok(domainService.getRecurringExpenseById(id));
+    }
+
     @PutMapping("/{id}")
     @Operation(summary = "Update recurring expense template", description = "Update an existing recurring expense template with new values")
     @ApiResponses(value = {

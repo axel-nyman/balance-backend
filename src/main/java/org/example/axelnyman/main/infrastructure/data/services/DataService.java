@@ -283,11 +283,43 @@ public class DataService implements IDataService {
 
     @Override
     public void deleteTodoListByBudgetId(java.util.UUID budgetId) {
-        todoListRepository.deleteByBudgetId(budgetId);
+        // Find the todo list first
+        todoListRepository.findByBudgetId(budgetId).ifPresent(todoList -> {
+            // Delete all todo items for this todo list
+            java.util.List<TodoItem> todoItems = todoItemRepository.findAllByTodoListId(todoList.getId());
+            todoItemRepository.deleteAll(todoItems);
+            // Then delete the todo list
+            todoListRepository.delete(todoList);
+        });
     }
 
     @Override
     public void deleteTodoList(java.util.UUID todoListId) {
         todoListRepository.deleteById(todoListId);
+    }
+
+    // Budget Unlock operations (Story 27)
+    @Override
+    public java.util.Optional<Budget> getMostRecentBudget() {
+        return budgetRepository.findFirstByDeletedAtIsNullOrderByYearDescMonthDesc();
+    }
+
+    @Override
+    public java.util.List<BalanceHistory> getBalanceHistoryByBudgetIdAndSource(
+            java.util.UUID budgetId,
+            org.example.axelnyman.main.domain.model.BalanceHistorySource source) {
+        return balanceHistoryRepository.findAllByBudgetIdAndSource(budgetId, source);
+    }
+
+    @Override
+    public void deleteBalanceHistoryByBudgetId(java.util.UUID budgetId) {
+        balanceHistoryRepository.deleteAllByBudgetId(budgetId);
+    }
+
+    @Override
+    public java.util.List<Budget> findLockedBudgetsUsingRecurringExpense(
+            java.util.UUID recurringExpenseId,
+            java.util.UUID excludeBudgetId) {
+        return budgetRepository.findLockedBudgetsUsingRecurringExpense(recurringExpenseId, excludeBudgetId);
     }
 }

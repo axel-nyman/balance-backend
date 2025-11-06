@@ -32,12 +32,14 @@ import org.example.axelnyman.main.shared.exceptions.BankAccountNotFoundException
 import org.example.axelnyman.main.shared.exceptions.BudgetAlreadyLockedException;
 import org.example.axelnyman.main.shared.exceptions.BudgetLockedException;
 import org.example.axelnyman.main.shared.exceptions.BudgetNotBalancedException;
+import org.example.axelnyman.main.shared.exceptions.BudgetNotLockedException;
 import org.example.axelnyman.main.shared.exceptions.BudgetNotFoundException;
 import org.example.axelnyman.main.shared.exceptions.DuplicateBankAccountNameException;
 import org.example.axelnyman.main.shared.exceptions.DuplicateBudgetException;
 import org.example.axelnyman.main.shared.exceptions.DuplicateRecurringExpenseException;
 import org.example.axelnyman.main.shared.exceptions.FutureDateException;
 import org.example.axelnyman.main.shared.exceptions.InvalidYearException;
+import org.example.axelnyman.main.shared.exceptions.NotMostRecentBudgetException;
 import org.example.axelnyman.main.shared.exceptions.TodoListNotFoundException;
 import org.example.axelnyman.main.shared.exceptions.UnlockedBudgetExistsException;
 import org.springframework.stereotype.Service;
@@ -218,6 +220,14 @@ public class DomainService implements IDomainService {
 
         // Return DTO
         return RecurringExpenseExtensions.toResponse(savedExpense);
+    }
+
+    @Override
+    public RecurringExpenseResponse getRecurringExpenseById(UUID id) {
+        RecurringExpense expense = dataService.getRecurringExpenseById(id)
+                .orElseThrow(() -> new org.example.axelnyman.main.shared.exceptions.RecurringExpenseNotFoundException(
+                        "Recurring expense not found with id: " + id));
+        return RecurringExpenseExtensions.toResponse(expense);
     }
 
     @Override
@@ -803,6 +813,112 @@ public class DomainService implements IDomainService {
                     budgetId
             );
             dataService.saveBalanceHistory(history);
+        }
+    }
+
+    // Budget Unlock operations (Story 27)
+    @Override
+    @Transactional
+    public BudgetResponse unlockBudget(UUID budgetId) {
+        // Validate budget exists
+        Budget budget = dataService.getBudgetById(budgetId)
+                .orElseThrow(() -> new BudgetNotFoundException("Budget not found"));
+
+        // Validate budget is locked
+        if (budget.getStatus() != BudgetStatus.LOCKED) {
+            throw new BudgetNotLockedException("Budget is not locked");
+        }
+
+        // Validate this is the most recent budget
+        Budget mostRecentBudget = dataService.getMostRecentBudget()
+                .orElseThrow(() -> new BudgetNotFoundException("No budgets found"));
+
+        if (!budget.getId().equals(mostRecentBudget.getId())) {
+            throw new NotMostRecentBudgetException("Only the most recent budget can be unlocked");
+        }
+
+        // Reverse balance changes
+        reverseBalanceChanges(budgetId);
+
+        // Restore recurring expenses to previous state
+        restoreRecurringExpenses(budgetId);
+
+        // Delete todo list
+        dataService.deleteTodoListByBudgetId(budgetId);
+
+        // Update budget status and clear lockedAt
+        budget.setStatus(BudgetStatus.UNLOCKED);
+        budget.setLockedAt(null);
+        Budget savedBudget = dataService.saveBudget(budget);
+
+        return BudgetExtensions.toResponse(savedBudget);
+    }
+
+    private void reverseBalanceChanges(UUID budgetId) {
+        // Find all AUTOMATIC balance history entries for this budget
+        List<BalanceHistory> automaticHistory = dataService.getBalanceHistoryByBudgetIdAndSource(
+                budgetId,
+                BalanceHistorySource.AUTOMATIC
+        );
+
+        // For each history entry, reverse the balance change
+        for (BalanceHistory history : automaticHistory) {
+            // Load the bank account
+            BankAccount account = dataService.getBankAccountById(history.getBankAccountId())
+                    .orElseThrow(() -> new BankAccountNotFoundException(
+                            "Bank account not found with id: " + history.getBankAccountId()));
+
+            // Reverse the balance change (subtract the amount that was added)
+            BigDecimal newBalance = account.getCurrentBalance().subtract(history.getChangeAmount());
+            account.setCurrentBalance(newBalance);
+            dataService.saveBankAccount(account);
+        }
+
+        // Delete all automatic balance history entries for this budget
+        dataService.deleteBalanceHistoryByBudgetId(budgetId);
+    }
+
+    private void restoreRecurringExpenses(UUID budgetId) {
+        // Get all budget expenses for this budget
+        List<BudgetExpense> budgetExpenses = dataService.getBudgetExpensesByBudgetId(budgetId);
+
+        // Get unique recurring expense IDs
+        List<UUID> recurringExpenseIds = budgetExpenses.stream()
+                .filter(expense -> expense.getRecurringExpenseId() != null)
+                .map(BudgetExpense::getRecurringExpenseId)
+                .distinct()
+                .toList();
+
+        // For each recurring expense, restore to previous locked budget state
+        for (UUID recurringExpenseId : recurringExpenseIds) {
+            RecurringExpense recurringExpense = dataService.getRecurringExpenseById(recurringExpenseId)
+                    .orElse(null);
+
+            if (recurringExpense == null) {
+                continue;
+            }
+
+            // Only restore if this budget was the last one to use it
+            if (budgetId.equals(recurringExpense.getLastUsedBudgetId())) {
+                // Find previous locked budget that used this recurring expense
+                List<Budget> previousBudgets = dataService.findLockedBudgetsUsingRecurringExpense(
+                        recurringExpenseId,
+                        budgetId
+                );
+
+                if (!previousBudgets.isEmpty()) {
+                    // Get the most recent previous budget (first in list due to DESC ordering)
+                    Budget previousBudget = previousBudgets.get(0);
+                    recurringExpense.setLastUsedDate(previousBudget.getLockedAt());
+                    recurringExpense.setLastUsedBudgetId(previousBudget.getId());
+                } else {
+                    // No previous locked budget found, reset to null
+                    recurringExpense.setLastUsedDate(null);
+                    recurringExpense.setLastUsedBudgetId(null);
+                }
+
+                dataService.saveRecurringExpense(recurringExpense);
+            }
         }
     }
 

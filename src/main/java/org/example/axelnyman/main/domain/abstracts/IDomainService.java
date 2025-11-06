@@ -29,6 +29,8 @@ public interface IDomainService {
     // Recurring Expense operations
     RecurringExpenseResponse createRecurringExpense(CreateRecurringExpenseRequest request);
 
+    RecurringExpenseResponse getRecurringExpenseById(UUID id);
+
     RecurringExpenseResponse updateRecurringExpense(UUID id, UpdateRecurringExpenseRequest request);
 
     RecurringExpenseListResponse getAllRecurringExpenses();
@@ -64,6 +66,9 @@ public interface IDomainService {
 
     // Budget locking operations (Story 24)
     BudgetResponse lockBudget(UUID budgetId);
+
+    // Budget unlocking operations (Story 27)
+    BudgetResponse unlockBudget(UUID budgetId);
 
     // Todo List operations (Story 25)
     void generateTodoList(UUID budgetId);

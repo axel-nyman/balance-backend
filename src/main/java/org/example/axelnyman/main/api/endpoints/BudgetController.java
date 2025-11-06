@@ -119,6 +119,11 @@ public class BudgetController {
         return ResponseEntity.ok(domainService.lockBudget(id));
     }
 
+    @PutMapping("/{id}/unlock")
+    public ResponseEntity<BudgetResponse> unlockBudget(@PathVariable UUID id) {
+        return ResponseEntity.ok(domainService.unlockBudget(id));
+    }
+
     @GetMapping("/{budgetId}/todo-list")
     public ResponseEntity<TodoListResponse> getTodoList(@PathVariable UUID budgetId) {
         return ResponseEntity.ok(domainService.getTodoList(budgetId));
