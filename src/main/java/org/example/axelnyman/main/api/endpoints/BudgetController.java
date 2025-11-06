@@ -3,6 +3,7 @@ package org.example.axelnyman.main.api.endpoints;
 import jakarta.validation.Valid;
 import org.example.axelnyman.main.domain.abstracts.IDomainService;
 import org.example.axelnyman.main.domain.dtos.BudgetDtos.*;
+import org.example.axelnyman.main.domain.dtos.TodoDtos.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -116,5 +117,10 @@ public class BudgetController {
     @PutMapping("/{id}/lock")
     public ResponseEntity<BudgetResponse> lockBudget(@PathVariable UUID id) {
         return ResponseEntity.ok(domainService.lockBudget(id));
+    }
+
+    @GetMapping("/{budgetId}/todo-list")
+    public ResponseEntity<TodoListResponse> getTodoList(@PathVariable UUID budgetId) {
+        return ResponseEntity.ok(domainService.getTodoList(budgetId));
     }
 }

@@ -9,6 +9,8 @@ import org.example.axelnyman.main.domain.model.BudgetIncome;
 import org.example.axelnyman.main.domain.model.BudgetSavings;
 import org.example.axelnyman.main.domain.model.BudgetStatus;
 import org.example.axelnyman.main.domain.model.RecurringExpense;
+import org.example.axelnyman.main.domain.model.TodoItem;
+import org.example.axelnyman.main.domain.model.TodoList;
 import org.example.axelnyman.main.infrastructure.data.context.BalanceHistoryRepository;
 import org.example.axelnyman.main.infrastructure.data.context.BankAccountRepository;
 import org.example.axelnyman.main.infrastructure.data.context.BudgetExpenseRepository;
@@ -16,6 +18,8 @@ import org.example.axelnyman.main.infrastructure.data.context.BudgetIncomeReposi
 import org.example.axelnyman.main.infrastructure.data.context.BudgetRepository;
 import org.example.axelnyman.main.infrastructure.data.context.BudgetSavingsRepository;
 import org.example.axelnyman.main.infrastructure.data.context.RecurringExpenseRepository;
+import org.example.axelnyman.main.infrastructure.data.context.TodoItemRepository;
+import org.example.axelnyman.main.infrastructure.data.context.TodoListRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -30,6 +34,8 @@ public class DataService implements IDataService {
     private final BudgetIncomeRepository budgetIncomeRepository;
     private final BudgetExpenseRepository budgetExpenseRepository;
     private final BudgetSavingsRepository budgetSavingsRepository;
+    private final TodoListRepository todoListRepository;
+    private final TodoItemRepository todoItemRepository;
 
     public DataService(BankAccountRepository bankAccountRepository,
                       BalanceHistoryRepository balanceHistoryRepository,
@@ -37,7 +43,9 @@ public class DataService implements IDataService {
                       BudgetRepository budgetRepository,
                       BudgetIncomeRepository budgetIncomeRepository,
                       BudgetExpenseRepository budgetExpenseRepository,
-                      BudgetSavingsRepository budgetSavingsRepository) {
+                      BudgetSavingsRepository budgetSavingsRepository,
+                      TodoListRepository todoListRepository,
+                      TodoItemRepository todoItemRepository) {
         this.bankAccountRepository = bankAccountRepository;
         this.balanceHistoryRepository = balanceHistoryRepository;
         this.recurringExpenseRepository = recurringExpenseRepository;
@@ -45,6 +53,8 @@ public class DataService implements IDataService {
         this.budgetIncomeRepository = budgetIncomeRepository;
         this.budgetExpenseRepository = budgetExpenseRepository;
         this.budgetSavingsRepository = budgetSavingsRepository;
+        this.todoListRepository = todoListRepository;
+        this.todoItemRepository = todoItemRepository;
     }
 
     @Override
@@ -248,5 +258,36 @@ public class DataService implements IDataService {
     @Override
     public void deleteBudgetSavingsByBudgetId(java.util.UUID budgetId) {
         budgetSavingsRepository.deleteByBudgetId(budgetId);
+    }
+
+    // Todo List operations (Story 25)
+    @Override
+    public TodoList saveTodoList(TodoList todoList) {
+        return todoListRepository.save(todoList);
+    }
+
+    @Override
+    public TodoItem saveTodoItem(TodoItem todoItem) {
+        return todoItemRepository.save(todoItem);
+    }
+
+    @Override
+    public java.util.Optional<TodoList> getTodoListByBudgetId(java.util.UUID budgetId) {
+        return todoListRepository.findByBudgetId(budgetId);
+    }
+
+    @Override
+    public java.util.List<TodoItem> getTodoItemsByTodoListId(java.util.UUID todoListId) {
+        return todoItemRepository.findAllByTodoListId(todoListId);
+    }
+
+    @Override
+    public void deleteTodoListByBudgetId(java.util.UUID budgetId) {
+        todoListRepository.deleteByBudgetId(budgetId);
+    }
+
+    @Override
+    public void deleteTodoList(java.util.UUID todoListId) {
+        todoListRepository.deleteById(todoListId);
     }
 }

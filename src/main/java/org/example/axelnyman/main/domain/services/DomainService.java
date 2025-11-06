@@ -5,12 +5,14 @@ import org.example.axelnyman.main.domain.abstracts.IDomainService;
 import org.example.axelnyman.main.domain.dtos.BankAccountDtos.*;
 import org.example.axelnyman.main.domain.dtos.BudgetDtos.*;
 import org.example.axelnyman.main.domain.dtos.RecurringExpenseDtos.*;
+import org.example.axelnyman.main.domain.dtos.TodoDtos.*;
 import org.example.axelnyman.main.domain.extensions.BankAccountExtensions;
 import org.example.axelnyman.main.domain.extensions.BudgetExpenseExtensions;
 import org.example.axelnyman.main.domain.extensions.BudgetExtensions;
 import org.example.axelnyman.main.domain.extensions.BudgetIncomeExtensions;
 import org.example.axelnyman.main.domain.extensions.BudgetSavingsExtensions;
 import org.example.axelnyman.main.domain.extensions.RecurringExpenseExtensions;
+import org.example.axelnyman.main.domain.extensions.TodoExtensions;
 import org.example.axelnyman.main.domain.model.BalanceHistory;
 import org.example.axelnyman.main.domain.model.BalanceHistorySource;
 import org.example.axelnyman.main.domain.model.BankAccount;
@@ -20,6 +22,11 @@ import org.example.axelnyman.main.domain.model.BudgetIncome;
 import org.example.axelnyman.main.domain.model.BudgetSavings;
 import org.example.axelnyman.main.domain.model.BudgetStatus;
 import org.example.axelnyman.main.domain.model.RecurringExpense;
+import org.example.axelnyman.main.domain.model.TodoItem;
+import org.example.axelnyman.main.domain.model.TodoItemType;
+import org.example.axelnyman.main.domain.model.TodoList;
+import org.example.axelnyman.main.domain.model.TransferPlan;
+import org.example.axelnyman.main.domain.utils.TransferCalculationUtils;
 import org.example.axelnyman.main.shared.exceptions.AccountLinkedToBudgetException;
 import org.example.axelnyman.main.shared.exceptions.BankAccountNotFoundException;
 import org.example.axelnyman.main.shared.exceptions.BudgetAlreadyLockedException;
@@ -31,6 +38,7 @@ import org.example.axelnyman.main.shared.exceptions.DuplicateBudgetException;
 import org.example.axelnyman.main.shared.exceptions.DuplicateRecurringExpenseException;
 import org.example.axelnyman.main.shared.exceptions.FutureDateException;
 import org.example.axelnyman.main.shared.exceptions.InvalidYearException;
+import org.example.axelnyman.main.shared.exceptions.TodoListNotFoundException;
 import org.example.axelnyman.main.shared.exceptions.UnlockedBudgetExistsException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -713,6 +721,9 @@ public class DomainService implements IDomainService {
         // Save budget
         Budget savedBudget = dataService.saveBudget(budget);
 
+        // Generate todo list for this budget (Story 25)
+        generateTodoList(budgetId);
+
         // Update recurring expenses for this budget
         updateRecurringExpensesForBudget(budgetId, lockedAt);
 
@@ -741,5 +752,95 @@ public class DomainService implements IDomainService {
             recurringExpense.setLastUsedBudgetId(budgetId);
             dataService.saveRecurringExpense(recurringExpense);
         }
+    }
+
+    // Todo List operations (Story 25)
+    @Override
+    @Transactional
+    public void generateTodoList(UUID budgetId) {
+        // Delete existing todo list if it exists (for relock scenario)
+        dataService.deleteTodoListByBudgetId(budgetId);
+
+        // Create new TodoList
+        TodoList todoList = new TodoList(budgetId);
+        TodoList savedTodoList = dataService.saveTodoList(todoList);
+
+        // Load budget data
+        Budget budget = dataService.getBudgetById(budgetId)
+                .orElseThrow(() -> new BudgetNotFoundException("Budget not found with id: " + budgetId));
+        List<BudgetIncome> income = dataService.getBudgetIncomeByBudgetId(budgetId);
+        List<BudgetExpense> expenses = dataService.getBudgetExpensesByBudgetId(budgetId);
+        List<BudgetSavings> savings = dataService.getBudgetSavingsByBudgetId(budgetId);
+
+        // Calculate transfers using TransferCalculationUtils
+        List<TransferPlan> transfers = TransferCalculationUtils.calculateTransfers(budget, income, expenses, savings);
+
+        // Create TRANSFER todo items
+        for (TransferPlan transfer : transfers) {
+            BankAccount fromAccount = dataService.getBankAccountById(transfer.getFromAccountId())
+                    .orElseThrow(() -> new BankAccountNotFoundException("Account not found: " + transfer.getFromAccountId()));
+            BankAccount toAccount = dataService.getBankAccountById(transfer.getToAccountId())
+                    .orElseThrow(() -> new BankAccountNotFoundException("Account not found: " + transfer.getToAccountId()));
+
+            String itemName = "Transfer " + transfer.getAmount() + " from " + fromAccount.getName() +
+                              " to " + toAccount.getName();
+
+            TodoItem transferItem = new TodoItem(
+                    savedTodoList.getId(),
+                    itemName,
+                    TodoItemType.TRANSFER,
+                    transfer.getAmount(),
+                    transfer.getFromAccountId(),
+                    transfer.getToAccountId()
+            );
+            dataService.saveTodoItem(transferItem);
+        }
+
+        // Create PAYMENT todo items for manual expenses
+        List<BudgetExpense> manualExpenses = expenses.stream()
+                .filter(expense -> Boolean.TRUE.equals(expense.getIsManual()))
+                .toList();
+
+        for (BudgetExpense expense : manualExpenses) {
+            BankAccount account = dataService.getBankAccountById(expense.getBankAccountId())
+                    .orElseThrow(() -> new BankAccountNotFoundException("Account not found: " + expense.getBankAccountId()));
+
+            String itemName = "Pay " + expense.getName() + " (" + expense.getAmount() + ") from " + account.getName();
+
+            TodoItem paymentItem = new TodoItem(
+                    savedTodoList.getId(),
+                    itemName,
+                    TodoItemType.PAYMENT,
+                    expense.getAmount(),
+                    expense.getBankAccountId()
+            );
+            dataService.saveTodoItem(paymentItem);
+        }
+    }
+
+    @Override
+    public TodoListResponse getTodoList(UUID budgetId) {
+        // Fetch todo list by budget ID
+        TodoList todoList = dataService.getTodoListByBudgetId(budgetId)
+                .orElseThrow(() -> new TodoListNotFoundException("Todo list not found for this budget"));
+
+        // Fetch all items for this todo list
+        List<TodoItem> items = dataService.getTodoItemsByTodoListId(todoList.getId());
+
+        // Map items to DTOs with account details
+        List<TodoItemResponse> itemResponses = items.stream()
+                .map(item -> {
+                    BankAccount fromAccount = item.getFromAccountId() != null
+                            ? dataService.getBankAccountById(item.getFromAccountId()).orElse(null)
+                            : null;
+                    BankAccount toAccount = item.getToAccountId() != null
+                            ? dataService.getBankAccountById(item.getToAccountId()).orElse(null)
+                            : null;
+                    return TodoExtensions.toItemResponse(item, fromAccount, toAccount);
+                })
+                .toList();
+
+        // Return mapped response with summary
+        return TodoExtensions.toResponse(todoList, itemResponses);
     }
 }

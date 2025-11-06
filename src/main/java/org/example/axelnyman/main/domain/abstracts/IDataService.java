@@ -8,6 +8,8 @@ import org.example.axelnyman.main.domain.model.BudgetIncome;
 import org.example.axelnyman.main.domain.model.BudgetSavings;
 import org.example.axelnyman.main.domain.model.BudgetStatus;
 import org.example.axelnyman.main.domain.model.RecurringExpense;
+import org.example.axelnyman.main.domain.model.TodoItem;
+import org.example.axelnyman.main.domain.model.TodoList;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -105,4 +107,17 @@ public interface IDataService {
     void deleteBudgetExpensesByBudgetId(UUID budgetId);
 
     void deleteBudgetSavingsByBudgetId(UUID budgetId);
+
+    // Todo List operations (Story 25)
+    TodoList saveTodoList(TodoList todoList);
+
+    TodoItem saveTodoItem(TodoItem todoItem);
+
+    Optional<TodoList> getTodoListByBudgetId(UUID budgetId);
+
+    List<TodoItem> getTodoItemsByTodoListId(UUID todoListId);
+
+    void deleteTodoListByBudgetId(UUID budgetId);
+
+    void deleteTodoList(UUID todoListId);
 }

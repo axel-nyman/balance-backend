@@ -3,6 +3,7 @@ package org.example.axelnyman.main.domain.abstracts;
 import org.example.axelnyman.main.domain.dtos.BankAccountDtos.*;
 import org.example.axelnyman.main.domain.dtos.BudgetDtos.*;
 import org.example.axelnyman.main.domain.dtos.RecurringExpenseDtos.*;
+import org.example.axelnyman.main.domain.dtos.TodoDtos.*;
 
 import java.util.UUID;
 
@@ -63,4 +64,9 @@ public interface IDomainService {
 
     // Budget locking operations (Story 24)
     BudgetResponse lockBudget(UUID budgetId);
+
+    // Todo List operations (Story 25)
+    void generateTodoList(UUID budgetId);
+
+    TodoListResponse getTodoList(UUID budgetId);
 }
