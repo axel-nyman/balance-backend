@@ -11,11 +11,6 @@ logs/
 .env.development
 .env.production
 
-### CLAUDE ###
-.claude/
-.claude-*
-CLAUDE.md
-
 ### STS ###
 .apt_generated
 .classpath
