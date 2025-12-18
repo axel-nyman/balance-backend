@@ -3,7 +3,12 @@
     "allow": [
       "Bash(./mvnw test:*)",
       "Bash(./mvnw:*)",
-      "Bash(xargs cat:*)"
+      "Bash(xargs cat:*)",
+      "Bash(docker info:*)",
+      "Bash(docker system:*)",
+      "Bash(docker build:*)",
+      "Bash(docker push:*)",
+      "Bash(docker push axelnyman/balance-backend:1.0.0)"
     ],
     "deny": [],
     "ask": []

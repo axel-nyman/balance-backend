@@ -1,0 +1,43 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# Build outputs
+target/
+!target/*.jar
+
+# Maven
+.mvn/repository/
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+.env.*
+*.env
+
+# Documentation
+*.md
+docs/
+todo/
+
+# Docker files (avoid recursive issues)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Test files
+src/test/
+
+# OS files
+.DS_Store
+Thumbs.db
