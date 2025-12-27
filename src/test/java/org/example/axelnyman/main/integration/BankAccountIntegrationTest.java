@@ -910,6 +910,44 @@ public class BankAccountIntegrationTest {
         }
 
         @Test
+        void shouldAllowReusingNameAfterSoftDelete() throws Exception {
+                // Given - create and delete a bank account
+                String accountName = "Reusable Account";
+                CreateBankAccountRequest createRequest = new CreateBankAccountRequest(
+                                accountName,
+                                "Original description",
+                                new BigDecimal("100.00"));
+
+                String createResponseJson = mockMvc.perform(post("/api/bank-accounts")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(createRequest)))
+                                .andExpect(status().isCreated())
+                                .andReturn().getResponse().getContentAsString();
+
+                UUID originalId = UUID.fromString(objectMapper.readTree(createResponseJson).get("id").asText());
+
+                // Delete the account
+                mockMvc.perform(delete("/api/bank-accounts/" + originalId))
+                                .andExpect(status().isNoContent());
+
+                // When - create a new account with the same name
+                CreateBankAccountRequest reuseRequest = new CreateBankAccountRequest(
+                                accountName,
+                                "New description",
+                                new BigDecimal("200.00"));
+
+                // Then - should succeed with a new ID
+                mockMvc.perform(post("/api/bank-accounts")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(reuseRequest)))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.id").exists())
+                                .andExpect(jsonPath("$.id", not(is(originalId.toString()))))
+                                .andExpect(jsonPath("$.name", is(accountName)))
+                                .andExpect(jsonPath("$.currentBalance", is(200.00)));
+        }
+
+        @Test
         void shouldNotAllowUpdatingDeletedAccountDetails() throws Exception {
                 // Given - create and delete an account
                 var account = createBankAccountEntity("Deleted Account", "Already deleted", new BigDecimal("1000.00"));

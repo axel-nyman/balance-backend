@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "bank_accounts", uniqueConstraints = @UniqueConstraint(columnNames = "name"))
+@Table(name = "bank_accounts")
 @EntityListeners(AuditingEntityListener.class)
 public final class BankAccount {
 
@@ -18,7 +18,7 @@ public final class BankAccount {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String name;
 
     @Column(length = 500)
