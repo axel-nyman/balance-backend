@@ -34,6 +34,7 @@ import org.example.axelnyman.main.shared.exceptions.AccountLinkedToBudgetExcepti
 import org.example.axelnyman.main.shared.exceptions.BankAccountNotFoundException;
 import org.example.axelnyman.main.shared.exceptions.BudgetAlreadyLockedException;
 import org.example.axelnyman.main.shared.exceptions.BudgetLockedException;
+import org.example.axelnyman.main.shared.exceptions.DateBeforeAccountCreationException;
 import org.example.axelnyman.main.shared.exceptions.BudgetNotBalancedException;
 import org.example.axelnyman.main.shared.exceptions.BudgetNotLockedException;
 import org.example.axelnyman.main.shared.exceptions.BudgetNotFoundException;
@@ -54,6 +55,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -84,7 +86,8 @@ public class DomainService implements IDomainService {
                 savedAccount.getCurrentBalance(),
                 "Initial balance",
                 BalanceHistorySource.MANUAL,
-                null
+                null,
+                LocalDateTime.now()
         ));
 
         return BankAccountExtensions.toResponse(savedAccount);
@@ -152,6 +155,12 @@ public class DomainService implements IDomainService {
             throw new BankAccountNotFoundException("Cannot update balance of deleted bank account");
         }
 
+        // Validate date is not before account creation (truncate to seconds to avoid precision issues)
+        if (request.date().truncatedTo(ChronoUnit.SECONDS)
+                .isBefore(account.getCreatedAt().truncatedTo(ChronoUnit.SECONDS))) {
+            throw new DateBeforeAccountCreationException("Date cannot be before the account was created");
+        }
+
         // Store previous balance
         BigDecimal previousBalance = account.getCurrentBalance();
 
@@ -164,18 +173,16 @@ public class DomainService implements IDomainService {
         // Save updated account
         BankAccount updatedAccount = dataService.saveBankAccount(account);
 
-        // Create balance history entry with MANUAL source
+        // Create balance history entry with MANUAL source - use explicit changeDate
         BalanceHistory historyEntry = new BalanceHistory(
                 updatedAccount.getId(),
                 request.newBalance(),
                 changeAmount,
                 request.comment(),
                 BalanceHistorySource.MANUAL,
-                null  // budgetId is null for manual updates
+                null,  // budgetId is null for manual updates
+                request.date()  // explicit changeDate from request
         );
-
-        // Override the changeDate with the request date instead of auto-generated
-        historyEntry.setChangeDate(request.date());
 
         dataService.saveBalanceHistory(historyEntry);
 
@@ -837,7 +844,8 @@ public class DomainService implements IDomainService {
                     totalSavings,
                     comment,
                     BalanceHistorySource.AUTOMATIC,
-                    budgetId
+                    budgetId,
+                    LocalDateTime.now()  // Automatic entries use current timestamp
             );
             dataService.saveBalanceHistory(history);
         }

@@ -1,7 +1,6 @@
 package org.example.axelnyman.main.domain.model;
 
 import jakarta.persistence.*;
-import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
@@ -26,7 +25,6 @@ public final class BalanceHistory {
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal changeAmount;
 
-    @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime changeDate;
 
@@ -46,13 +44,15 @@ public final class BalanceHistory {
 
     // Constructor for balance history creation
     public BalanceHistory(UUID bankAccountId, BigDecimal balance, BigDecimal changeAmount,
-                         String comment, BalanceHistorySource source, UUID budgetId) {
+                         String comment, BalanceHistorySource source, UUID budgetId,
+                         LocalDateTime changeDate) {
         this.bankAccountId = bankAccountId;
         this.balance = balance;
         this.changeAmount = changeAmount;
         this.comment = comment;
         this.source = source;
         this.budgetId = budgetId;
+        this.changeDate = changeDate;
     }
 
     // Getters and Setters

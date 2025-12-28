@@ -316,7 +316,7 @@ public class BankAccountIntegrationTest {
                 var account = createBankAccountEntity("Test Account", "For testing", new BigDecimal("1000.00"));
                 var updateRequest = new java.util.HashMap<String, Object>();
                 updateRequest.put("newBalance", new BigDecimal("1500.00"));
-                updateRequest.put("date", java.time.LocalDateTime.now().minusDays(1).toString());
+                updateRequest.put("date", java.time.LocalDateTime.now().toString());  // Use current time (after account creation)
                 updateRequest.put("comment", "Salary deposit");
 
                 // When & Then
@@ -521,19 +521,154 @@ public class BankAccountIntegrationTest {
         }
 
         @Test
-        void shouldAcceptPastDate() throws Exception {
-                // Given - update request with past date
+        void shouldAcceptPastDateAfterAccountCreation() throws Exception {
+                // Given - update request with past date (but after account creation)
                 var account = createBankAccountEntity("Test Account", "For testing", new BigDecimal("1000.00"));
+
+                // Wait a moment to ensure we can use a past date that's still after creation
+                Thread.sleep(100);
+
+                // Use current time (which is after account creation)
                 var updateRequest = new java.util.HashMap<String, Object>();
                 updateRequest.put("newBalance", new BigDecimal("900.00"));
-                updateRequest.put("date", java.time.LocalDateTime.now().minusYears(1).toString());
+                updateRequest.put("date", java.time.LocalDateTime.now().toString());
                 updateRequest.put("comment", "Historical adjustment");
 
-                // When & Then - should accept past date
+                // When & Then - should accept date after account creation
                 mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(updateRequest)))
                                 .andExpect(status().isOk());
+        }
+
+        @Test
+        void shouldStoreUserProvidedDateAsChangeDate() throws Exception {
+                // Given - create account and prepare update request with specific date
+                var account = createBankAccountEntity("Test Account", "For date test", new BigDecimal("1000.00"));
+
+                // Wait a moment to ensure timestamp difference
+                Thread.sleep(100);
+
+                // Use current time (which is after account creation)
+                java.time.LocalDateTime requestDate = java.time.LocalDateTime.now();
+
+                var updateRequest = new java.util.HashMap<String, Object>();
+                updateRequest.put("newBalance", new BigDecimal("1500.00"));
+                updateRequest.put("date", requestDate.toString());
+                updateRequest.put("comment", "Test date storage");
+
+                // When - update balance
+                mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isOk());
+
+                // Then - verify the balance history entry has the user-provided date
+                var historyEntries = balanceHistoryRepository.findAll();
+                var latestEntry = historyEntries.stream()
+                                .filter(h -> h.getBankAccountId().equals(account.getId()))
+                                .filter(h -> h.getComment() != null && h.getComment().equals("Test date storage"))
+                                .findFirst()
+                                .orElseThrow();
+
+                // Compare dates ignoring nanoseconds (DB precision)
+                assert latestEntry.getChangeDate().truncatedTo(java.time.temporal.ChronoUnit.SECONDS)
+                                .equals(requestDate.truncatedTo(java.time.temporal.ChronoUnit.SECONDS))
+                                : "ChangeDate should match the user-provided date";
+        }
+
+        @Test
+        void shouldRejectDateBeforeAccountCreation() throws Exception {
+                // Given - create account
+                var account = createBankAccountEntity("Test Account", "For date validation", new BigDecimal("1000.00"));
+
+                // Use a date well before account creation (guaranteed to be before)
+                java.time.LocalDateTime dateBeforeCreation = java.time.LocalDateTime.of(2020, 1, 1, 0, 0);
+
+                var updateRequest = new java.util.HashMap<String, Object>();
+                updateRequest.put("newBalance", new BigDecimal("1500.00"));
+                updateRequest.put("date", dateBeforeCreation.toString());
+                updateRequest.put("comment", "Should fail");
+
+                // When & Then - should reject with 400
+                mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.error", is("Date cannot be before the account was created")));
+        }
+
+        @Test
+        void shouldAcceptUpdateWithExactSameTimestampAsCreation() throws Exception {
+                // Given - create account and use exact createdAt timestamp
+                var account = createBankAccountEntity("Test Account", "Precision test", new BigDecimal("1000.00"));
+
+                var updateRequest = new java.util.HashMap<String, Object>();
+                updateRequest.put("newBalance", new BigDecimal("1500.00"));
+                updateRequest.put("date", account.getCreatedAt().toString());
+                updateRequest.put("comment", "Exact creation time");
+
+                // When & Then - should succeed (not fail with precision issues)
+                mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.currentBalance", is(1500.00)));
+        }
+
+        @Test
+        void shouldAcceptUpdateWithNanosecondAfterCreation() throws Exception {
+                // Given - create account and use timestamp with nanosecond offset
+                var account = createBankAccountEntity("Test Account", "Nano test", new BigDecimal("1000.00"));
+
+                var updateRequest = new java.util.HashMap<String, Object>();
+                updateRequest.put("newBalance", new BigDecimal("1500.00"));
+                updateRequest.put("date", account.getCreatedAt().plusNanos(1).toString());
+                updateRequest.put("comment", "Nanosecond after creation");
+
+                // When & Then - should succeed
+                mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.currentBalance", is(1500.00)));
+        }
+
+        @Test
+        void shouldAcceptUpdateWithTruncatedCreationTime() throws Exception {
+                // Given - create account and use truncated timestamp (simulates JSON precision loss)
+                var account = createBankAccountEntity("Test Account", "Truncated test", new BigDecimal("1000.00"));
+
+                var updateRequest = new java.util.HashMap<String, Object>();
+                updateRequest.put("newBalance", new BigDecimal("1500.00"));
+                updateRequest.put("date", account.getCreatedAt()
+                                .truncatedTo(java.time.temporal.ChronoUnit.SECONDS).toString());
+                updateRequest.put("comment", "Truncated to seconds");
+
+                // When & Then - should succeed (this was the bug - would fail before fix)
+                mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.currentBalance", is(1500.00)));
+        }
+
+        @Test
+        void shouldRejectDateOneSecondBeforeAccountCreation() throws Exception {
+                // Given - create account and use timestamp exactly one second before
+                var account = createBankAccountEntity("Test Account", "Before test", new BigDecimal("1000.00"));
+
+                var updateRequest = new java.util.HashMap<String, Object>();
+                updateRequest.put("newBalance", new BigDecimal("1500.00"));
+                updateRequest.put("date", account.getCreatedAt().minusSeconds(1).toString());
+                updateRequest.put("comment", "One second before creation");
+
+                // When & Then - should reject with 400
+                mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.error", is("Date cannot be before the account was created")));
         }
 
         @Test
@@ -1061,13 +1196,15 @@ public class BankAccountIntegrationTest {
                 // Create MANUAL entry
                 var manualEntry = new org.example.axelnyman.main.domain.model.BalanceHistory(
                         account.getId(), new BigDecimal("1000.00"), new BigDecimal("1000.00"),
-                        "Manual entry", org.example.axelnyman.main.domain.model.BalanceHistorySource.MANUAL, null);
+                        "Manual entry", org.example.axelnyman.main.domain.model.BalanceHistorySource.MANUAL, null,
+                        java.time.LocalDateTime.now());
                 balanceHistoryRepository.save(manualEntry);
 
                 // Create AUTOMATIC entry with budgetId
                 var automaticEntry = new org.example.axelnyman.main.domain.model.BalanceHistory(
                         account.getId(), new BigDecimal("1500.00"), new BigDecimal("500.00"),
-                        "Automatic entry", org.example.axelnyman.main.domain.model.BalanceHistorySource.AUTOMATIC, UUID.randomUUID());
+                        "Automatic entry", org.example.axelnyman.main.domain.model.BalanceHistorySource.AUTOMATIC, UUID.randomUUID(),
+                        java.time.LocalDateTime.now());
                 balanceHistoryRepository.save(automaticEntry);
 
                 // When & Then - should differentiate sources
@@ -1087,13 +1224,15 @@ public class BankAccountIntegrationTest {
                 // Create MANUAL entry (budgetId should be null)
                 var manualEntry = new org.example.axelnyman.main.domain.model.BalanceHistory(
                         account.getId(), new BigDecimal("1000.00"), new BigDecimal("1000.00"),
-                        "Manual entry", org.example.axelnyman.main.domain.model.BalanceHistorySource.MANUAL, null);
+                        "Manual entry", org.example.axelnyman.main.domain.model.BalanceHistorySource.MANUAL, null,
+                        java.time.LocalDateTime.now());
                 balanceHistoryRepository.save(manualEntry);
 
                 // Create AUTOMATIC entry (budgetId should be present)
                 var automaticEntry = new org.example.axelnyman.main.domain.model.BalanceHistory(
                         account.getId(), new BigDecimal("1500.00"), new BigDecimal("500.00"),
-                        "Automatic entry", org.example.axelnyman.main.domain.model.BalanceHistorySource.AUTOMATIC, testBudgetId);
+                        "Automatic entry", org.example.axelnyman.main.domain.model.BalanceHistorySource.AUTOMATIC, testBudgetId,
+                        java.time.LocalDateTime.now());
                 balanceHistoryRepository.save(automaticEntry);
 
                 // When & Then
@@ -1175,7 +1314,8 @@ public class BankAccountIntegrationTest {
         private void createBalanceHistoryEntry(UUID bankAccountId, BigDecimal balance, BigDecimal changeAmount, String comment) {
                 org.example.axelnyman.main.domain.model.BalanceHistory entry = new org.example.axelnyman.main.domain.model.BalanceHistory(
                         bankAccountId, balance, changeAmount, comment,
-                        org.example.axelnyman.main.domain.model.BalanceHistorySource.MANUAL, null);
+                        org.example.axelnyman.main.domain.model.BalanceHistorySource.MANUAL, null,
+                        java.time.LocalDateTime.now());
                 balanceHistoryRepository.save(entry);
         }
 }
