@@ -54,8 +54,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -87,7 +87,7 @@ public class DomainService implements IDomainService {
                 "Initial balance",
                 BalanceHistorySource.MANUAL,
                 null,
-                LocalDateTime.now()
+                LocalDate.now()
         ));
 
         return BankAccountExtensions.toResponse(savedAccount);
@@ -142,7 +142,7 @@ public class DomainService implements IDomainService {
     @Transactional
     public BalanceUpdateResponse updateBankAccountBalance(UUID id, UpdateBalanceRequest request) {
         // Validate date is not in the future
-        if (request.date().isAfter(LocalDateTime.now())) {
+        if (request.date().isAfter(LocalDate.now())) {
             throw new FutureDateException("Date cannot be in the future");
         }
 
@@ -155,9 +155,8 @@ public class DomainService implements IDomainService {
             throw new BankAccountNotFoundException("Cannot update balance of deleted bank account");
         }
 
-        // Validate date is not before account creation (truncate to seconds to avoid precision issues)
-        if (request.date().truncatedTo(ChronoUnit.SECONDS)
-                .isBefore(account.getCreatedAt().truncatedTo(ChronoUnit.SECONDS))) {
+        // Validate date is not before account creation
+        if (request.date().isBefore(account.getCreatedAt().toLocalDate())) {
             throw new DateBeforeAccountCreationException("Date cannot be before the account was created");
         }
 
@@ -845,7 +844,7 @@ public class DomainService implements IDomainService {
                     comment,
                     BalanceHistorySource.AUTOMATIC,
                     budgetId,
-                    LocalDateTime.now()  // Automatic entries use current timestamp
+                    LocalDate.now()  // Automatic entries use current date
             );
             dataService.saveBalanceHistory(history);
         }

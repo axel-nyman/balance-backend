@@ -6,6 +6,7 @@ import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -43,7 +44,7 @@ public class BankAccountDtos {
             BigDecimal newBalance,
 
             @NotNull(message = "Date is required")
-            LocalDateTime date,
+            LocalDate date,
 
             @Size(max = 500, message = "Comment must be less than 500 characters")
             String comment
@@ -55,7 +56,7 @@ public class BankAccountDtos {
             BigDecimal currentBalance,
             BigDecimal previousBalance,
             BigDecimal changeAmount,
-            LocalDateTime lastUpdated
+            LocalDate lastUpdated
     ) {}
 
     public record UpdateBankAccountRequest(

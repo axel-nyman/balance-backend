@@ -140,7 +140,7 @@ public class DataService implements IDataService {
 
     @Override
     public Page<BalanceHistory> getBalanceHistoryByBankAccountId(java.util.UUID bankAccountId, Pageable pageable) {
-        return balanceHistoryRepository.findAllByBankAccountIdOrderByChangeDateDesc(bankAccountId, pageable);
+        return balanceHistoryRepository.findAllByBankAccountIdOrderByChangeDateDescCreatedAtDesc(bankAccountId, pageable);
     }
 
     @Override

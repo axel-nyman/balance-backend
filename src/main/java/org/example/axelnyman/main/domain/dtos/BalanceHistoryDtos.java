@@ -3,7 +3,7 @@ package org.example.axelnyman.main.domain.dtos;
 import org.example.axelnyman.main.domain.model.BalanceHistorySource;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -13,7 +13,7 @@ public class BalanceHistoryDtos {
             UUID id,
             BigDecimal balance,
             BigDecimal changeAmount,
-            LocalDateTime changeDate,
+            LocalDate changeDate,
             String comment,
             BalanceHistorySource source,
             UUID budgetId

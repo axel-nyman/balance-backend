@@ -17,5 +17,5 @@ public interface BalanceHistoryRepository extends JpaRepository<BalanceHistory, 
 
     void deleteAllByBudgetId(UUID budgetId);
 
-    Page<BalanceHistory> findAllByBankAccountIdOrderByChangeDateDesc(UUID bankAccountId, Pageable pageable);
+    Page<BalanceHistory> findAllByBankAccountIdOrderByChangeDateDescCreatedAtDesc(UUID bankAccountId, Pageable pageable);
 }

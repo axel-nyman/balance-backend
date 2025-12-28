@@ -3,7 +3,10 @@ package org.example.axelnyman.main.domain.model;
 import jakarta.persistence.*;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import org.springframework.data.annotation.CreatedDate;
+
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -26,7 +29,7 @@ public final class BalanceHistory {
     private BigDecimal changeAmount;
 
     @Column(nullable = false, updatable = false)
-    private LocalDateTime changeDate;
+    private LocalDate changeDate;
 
     @Column(length = 500)
     private String comment;
@@ -38,6 +41,10 @@ public final class BalanceHistory {
     @Column
     private UUID budgetId;
 
+    @CreatedDate
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
     // Default constructor
     public BalanceHistory() {
     }
@@ -45,7 +52,7 @@ public final class BalanceHistory {
     // Constructor for balance history creation
     public BalanceHistory(UUID bankAccountId, BigDecimal balance, BigDecimal changeAmount,
                          String comment, BalanceHistorySource source, UUID budgetId,
-                         LocalDateTime changeDate) {
+                         LocalDate changeDate) {
         this.bankAccountId = bankAccountId;
         this.balance = balance;
         this.changeAmount = changeAmount;
@@ -88,11 +95,11 @@ public final class BalanceHistory {
         this.changeAmount = changeAmount;
     }
 
-    public LocalDateTime getChangeDate() {
+    public LocalDate getChangeDate() {
         return changeDate;
     }
 
-    public void setChangeDate(LocalDateTime changeDate) {
+    public void setChangeDate(LocalDate changeDate) {
         this.changeDate = changeDate;
     }
 
@@ -118,5 +125,13 @@ public final class BalanceHistory {
 
     public void setBudgetId(UUID budgetId) {
         this.budgetId = budgetId;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
     }
 }
