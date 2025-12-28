@@ -14,7 +14,8 @@
       "Bash(docker-compose:*)",
       "Bash(curl:*)",
       "Bash(pkill:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(git rev-parse:*)"
     ],
     "deny": [],
     "ask": []
