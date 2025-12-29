@@ -31,6 +31,7 @@ import org.example.axelnyman.main.domain.model.TodoList;
 import org.example.axelnyman.main.domain.model.TransferPlan;
 import org.example.axelnyman.main.domain.utils.TransferCalculationUtils;
 import org.example.axelnyman.main.shared.exceptions.AccountLinkedToBudgetException;
+import org.example.axelnyman.main.shared.exceptions.BackdatedBalanceUpdateException;
 import org.example.axelnyman.main.shared.exceptions.BankAccountNotFoundException;
 import org.example.axelnyman.main.shared.exceptions.BudgetAlreadyLockedException;
 import org.example.axelnyman.main.shared.exceptions.BudgetLockedException;
@@ -59,6 +60,7 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -158,6 +160,14 @@ public class DomainService implements IDomainService {
         // Validate date is not before account creation
         if (request.date().isBefore(account.getCreatedAt().toLocalDate())) {
             throw new DateBeforeAccountCreationException("Date cannot be before the account was created");
+        }
+
+        // Validate date is not before the most recent balance history entry
+        Optional<LocalDate> mostRecentDate = dataService.getMostRecentBalanceHistoryDate(id);
+        if (mostRecentDate.isPresent() && request.date().isBefore(mostRecentDate.get())) {
+            throw new BackdatedBalanceUpdateException(
+                "Date cannot be before the most recent balance history entry (" + mostRecentDate.get() + ")"
+            );
         }
 
         // Store previous balance

@@ -15,6 +15,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -57,6 +58,8 @@ public interface IDataService {
     BalanceHistory saveBalanceHistory(BalanceHistory balanceHistory);
 
     Page<BalanceHistory> getBalanceHistoryByBankAccountId(UUID bankAccountId, Pageable pageable);
+
+    Optional<LocalDate> getMostRecentBalanceHistoryDate(UUID bankAccountId);
 
     // Budget operations
     Budget saveBudget(Budget budget);

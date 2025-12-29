@@ -66,6 +66,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 
+    @ExceptionHandler(BackdatedBalanceUpdateException.class)
+    public ResponseEntity<Object> handleBackdatedBalanceUpdateException(BackdatedBalanceUpdateException ex) {
+        Map<String, String> errorResponse = new HashMap<>();
+        errorResponse.put("error", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
     @ExceptionHandler(AccountLinkedToBudgetException.class)
     public ResponseEntity<Object> handleAccountLinkedToBudgetException(AccountLinkedToBudgetException ex) {
         Map<String, String> errorResponse = new HashMap<>();

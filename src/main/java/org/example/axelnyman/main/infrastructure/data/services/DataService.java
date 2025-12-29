@@ -24,6 +24,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Service
@@ -141,6 +142,11 @@ public class DataService implements IDataService {
     @Override
     public Page<BalanceHistory> getBalanceHistoryByBankAccountId(java.util.UUID bankAccountId, Pageable pageable) {
         return balanceHistoryRepository.findAllByBankAccountIdOrderByChangeDateDescCreatedAtDesc(bankAccountId, pageable);
+    }
+
+    @Override
+    public java.util.Optional<LocalDate> getMostRecentBalanceHistoryDate(java.util.UUID bankAccountId) {
+        return balanceHistoryRepository.findMostRecentChangeDateByBankAccountId(bankAccountId);
     }
 
     @Override

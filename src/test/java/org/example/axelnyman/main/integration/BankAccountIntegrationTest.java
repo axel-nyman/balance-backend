@@ -23,6 +23,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
 import java.util.UUID;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -60,6 +61,9 @@ public class BankAccountIntegrationTest {
 
         @Autowired
         private ObjectMapper objectMapper;
+
+        @Autowired
+        private JdbcTemplate jdbcTemplate;
 
         private MockMvc mockMvc;
 
@@ -1340,5 +1344,135 @@ public class BankAccountIntegrationTest {
                         org.example.axelnyman.main.domain.model.BalanceHistorySource.MANUAL, null,
                         date);
                 balanceHistoryRepository.save(entry);
+        }
+
+        private org.example.axelnyman.main.domain.model.BankAccount createBankAccountEntityWithCreationDate(String name,
+                        String description, BigDecimal initialBalance, java.time.LocalDateTime createdAt) {
+                // First create the account normally (JPA auditing will set createdAt to now)
+                org.example.axelnyman.main.domain.model.BankAccount account = new org.example.axelnyman.main.domain.model.BankAccount();
+                account.setName(name);
+                account.setDescription(description);
+                account.setCurrentBalance(initialBalance);
+                var savedAccount = bankAccountRepository.save(account);
+
+                // Use JDBC to update createdAt to our desired date (bypasses JPA auditing)
+                jdbcTemplate.update(
+                        "UPDATE bank_accounts SET created_at = ? WHERE id = ?",
+                        java.sql.Timestamp.valueOf(createdAt),
+                        savedAccount.getId()
+                );
+
+                // Reload entity to get the updated createdAt
+                return bankAccountRepository.findById(savedAccount.getId()).orElseThrow();
+        }
+
+        // ========================================
+        // Backdated Balance Update Prevention Tests
+        // ========================================
+
+        @Test
+        void shouldRejectBalanceUpdateWithDateBeforeMostRecentEntry() throws Exception {
+                // Given - account created 5 days ago with existing balance history
+                java.time.LocalDateTime fiveDaysAgo = java.time.LocalDateTime.now().minusDays(5);
+                var account = createBankAccountEntityWithCreationDate("Test Account", "For backdating test", new BigDecimal("1000.00"), fiveDaysAgo);
+
+                // Create initial balance history entry dated 5 days ago
+                createBalanceHistoryEntryWithDate(account.getId(), new BigDecimal("1000.00"), new BigDecimal("1000.00"), "Initial balance", java.time.LocalDate.now().minusDays(5));
+
+                // Create an entry dated today via API
+                var firstUpdateRequest = new java.util.HashMap<String, Object>();
+                firstUpdateRequest.put("newBalance", new BigDecimal("1500.00"));
+                firstUpdateRequest.put("date", java.time.LocalDate.now().toString());
+                firstUpdateRequest.put("comment", "Recent update");
+
+                mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(firstUpdateRequest)))
+                                .andExpect(status().isOk());
+
+                // When - try to add entry with date before the most recent (yesterday, which is after account creation but before most recent entry)
+                var backdatedRequest = new java.util.HashMap<String, Object>();
+                backdatedRequest.put("newBalance", new BigDecimal("1200.00"));
+                backdatedRequest.put("date", java.time.LocalDate.now().minusDays(1).toString());
+                backdatedRequest.put("comment", "Backdated entry");
+
+                // Then - should be rejected with 400 BAD_REQUEST with backdating error (not account creation error)
+                mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(backdatedRequest)))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.error", containsString("cannot be before the most recent")));
+        }
+
+        @Test
+        void shouldAllowBalanceUpdateWithSameDateAsMostRecentEntry() throws Exception {
+                // Given - account with existing balance history dated today
+                var account = createBankAccountEntity("Test Account", "For same-date test", new BigDecimal("1000.00"));
+
+                // Create first entry dated today
+                var firstUpdateRequest = new java.util.HashMap<String, Object>();
+                firstUpdateRequest.put("newBalance", new BigDecimal("1500.00"));
+                firstUpdateRequest.put("date", java.time.LocalDate.now().toString());
+                firstUpdateRequest.put("comment", "First update today");
+
+                mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(firstUpdateRequest)))
+                                .andExpect(status().isOk());
+
+                // When - add another entry with the same date
+                var sameDateRequest = new java.util.HashMap<String, Object>();
+                sameDateRequest.put("newBalance", new BigDecimal("1800.00"));
+                sameDateRequest.put("date", java.time.LocalDate.now().toString());
+                sameDateRequest.put("comment", "Second update today");
+
+                // Then - should succeed
+                mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(sameDateRequest)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.currentBalance", is(1800.00)));
+        }
+
+        @Test
+        void shouldAllowBalanceUpdateWithDateAfterMostRecentEntry() throws Exception {
+                // Given - account with existing balance history dated in the past
+                var account = createBankAccountEntity("Test Account", "For future date test", new BigDecimal("1000.00"));
+
+                // Clear auto-created balance history and create entry dated yesterday
+                balanceHistoryRepository.deleteAll();
+                createBalanceHistoryEntryWithDate(account.getId(), new BigDecimal("1500.00"), new BigDecimal("500.00"), "Yesterday's entry", java.time.LocalDate.now().minusDays(1));
+
+                // When - add entry with today's date (after the most recent)
+                var futureRequest = new java.util.HashMap<String, Object>();
+                futureRequest.put("newBalance", new BigDecimal("2000.00"));
+                futureRequest.put("date", java.time.LocalDate.now().toString());
+                futureRequest.put("comment", "Today's entry");
+
+                // Then - should succeed
+                mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(futureRequest)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.currentBalance", is(2000.00)));
+        }
+
+        @Test
+        void shouldAllowFirstBalanceUpdateAfterAccountCreation() throws Exception {
+                // Given - new account with only initial balance history
+                var account = createBankAccountEntity("New Account", "First update test", new BigDecimal("500.00"));
+
+                // When - first balance update (should always succeed since no prior manual entries)
+                var firstUpdateRequest = new java.util.HashMap<String, Object>();
+                firstUpdateRequest.put("newBalance", new BigDecimal("600.00"));
+                firstUpdateRequest.put("date", java.time.LocalDate.now().toString());
+                firstUpdateRequest.put("comment", "First manual update");
+
+                // Then - should succeed
+                mockMvc.perform(post("/api/bank-accounts/" + account.getId() + "/balance")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(firstUpdateRequest)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.currentBalance", is(600.00)));
         }
 }
