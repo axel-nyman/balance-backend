@@ -461,6 +461,61 @@ public class BudgetIntegrationTest {
         }
 
         @Test
+        void shouldReturnCorrectTotalsForBudgetsWithItems() throws Exception {
+                // Given - create budget with income, expenses, and savings
+                createBudget(6, 2024);
+                var budget = budgetRepository.findAll().get(0);
+                UUID budgetId = budget.getId();
+
+                var bankAccount = createBankAccountEntity("Test Account", "Test", new BigDecimal("10000.00"));
+
+                // Add income: 3000
+                Map<String, Object> incomeRequest = new HashMap<>();
+                incomeRequest.put("name", "Salary");
+                incomeRequest.put("amount", "3000.00");
+                incomeRequest.put("bankAccountId", bankAccount.getId().toString());
+
+                mockMvc.perform(post("/api/budgets/" + budgetId + "/income")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(incomeRequest)))
+                        .andExpect(status().isCreated());
+
+                // Add expense: 1500
+                Map<String, Object> expenseRequest = new HashMap<>();
+                expenseRequest.put("name", "Rent");
+                expenseRequest.put("amount", "1500.00");
+                expenseRequest.put("bankAccountId", bankAccount.getId().toString());
+                expenseRequest.put("deductedAt", "2024-06-01");
+                expenseRequest.put("isManual", true);
+
+                mockMvc.perform(post("/api/budgets/" + budgetId + "/expenses")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(expenseRequest)))
+                        .andExpect(status().isCreated());
+
+                // Add savings: 500
+                Map<String, Object> savingsRequest = new HashMap<>();
+                savingsRequest.put("name", "Emergency Fund");
+                savingsRequest.put("amount", "500.00");
+                savingsRequest.put("bankAccountId", bankAccount.getId().toString());
+
+                mockMvc.perform(post("/api/budgets/" + budgetId + "/savings")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(savingsRequest)))
+                        .andExpect(status().isCreated());
+
+                // When & Then - verify totals are correctly calculated
+                // Expected: income=3000, expenses=1500, savings=500, balance=1000
+                mockMvc.perform(get("/api/budgets"))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.budgets", hasSize(1)))
+                        .andExpect(jsonPath("$.budgets[0].totals.income", is(3000.00)))
+                        .andExpect(jsonPath("$.budgets[0].totals.expenses", is(1500.00)))
+                        .andExpect(jsonPath("$.budgets[0].totals.savings", is(500.00)))
+                        .andExpect(jsonPath("$.budgets[0].totals.balance", is(1000.00)));
+        }
+
+        @Test
         void shouldSortBudgetsByYearDescending() throws Exception {
                 // Given - budgets from different years (manually set to LOCKED for 2nd and 3rd)
                 createBudget(6, 2022);

@@ -31,6 +31,18 @@ public final class BudgetExtensions {
         );
     }
 
+    public static BudgetResponse toResponse(Budget budget, BudgetTotalsResponse totals) {
+        return new BudgetResponse(
+                budget.getId(),
+                budget.getMonth(),
+                budget.getYear(),
+                budget.getStatus(),
+                budget.getCreatedAt(),
+                budget.getLockedAt(),
+                totals
+        );
+    }
+
     public static Budget toEntity(CreateBudgetRequest request) {
         return new Budget(request.month(), request.year());
     }

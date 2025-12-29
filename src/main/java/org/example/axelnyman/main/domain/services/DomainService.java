@@ -412,7 +412,21 @@ public class DomainService implements IDomainService {
         List<Budget> budgets = dataService.getAllBudgetsSorted();
 
         List<BudgetResponse> budgetResponses = budgets.stream()
-                .map(BudgetExtensions::toResponse)
+                .map(budget -> {
+                    BigDecimal totalIncome = dataService.calculateTotalIncome(budget.getId());
+                    BigDecimal totalExpenses = dataService.calculateTotalExpenses(budget.getId());
+                    BigDecimal totalSavings = dataService.calculateTotalSavings(budget.getId());
+                    BigDecimal balance = totalIncome.subtract(totalExpenses).subtract(totalSavings);
+
+                    BudgetTotalsResponse totals = new BudgetTotalsResponse(
+                            totalIncome,
+                            totalExpenses,
+                            totalSavings,
+                            balance
+                    );
+
+                    return BudgetExtensions.toResponse(budget, totals);
+                })
                 .toList();
 
         return new BudgetListResponse(budgetResponses);
