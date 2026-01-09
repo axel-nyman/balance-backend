@@ -203,12 +203,61 @@ PostgreSQL stores timestamps with microsecond precision while Java LocalDateTime
 ## Configuration
 
 **Profiles:**
-- `local`: Development mode, verbose logging, `ddl-auto=update`
-- Default: Environment variables, `ddl-auto=create-drop`
+- `local`: Development mode, verbose logging, `ddl-auto=validate`, Flyway enabled
+- Default: Environment variables, `ddl-auto=validate`, Flyway enabled
+- Docker: Environment variables, `ddl-auto=validate`, Flyway clean disabled
+- Test: Testcontainers, `ddl-auto=validate`, Flyway enabled
 
 **Environment Variables:**
 - `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`
 - `JWT_SECRET` (32+ characters), `JWT_EXPIRATION` (default: 86400000ms)
+
+## Database Migrations
+
+This project uses **Flyway** for database schema management. Schema changes are tracked through versioned SQL migration scripts.
+
+### Migration File Location
+`src/main/resources/db/migration/`
+
+### Naming Convention
+`V{version}__{description}.sql`
+- Example: `V1__baseline_schema.sql`
+- Example: `V2__add_user_preferences.sql`
+
+### Creating New Migrations
+
+1. Create a new file following the naming convention
+2. Write idempotent SQL (use `IF NOT EXISTS` where applicable)
+3. Test locally before committing
+4. Migrations are automatically applied on application startup
+
+### Commands
+
+```bash
+# View migration status (via application logs)
+./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+
+# Reset local database (when needed)
+docker-compose -f docker-compose.dev.yml down -v
+docker-compose -f docker-compose.dev.yml up -d
+./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+```
+
+### Important Rules
+
+- **Never modify an applied migration** - Create a new migration instead
+- **Migrations must be backward compatible** - Old code must work with new schema during deployment
+- **Test migrations locally first** - Run against a fresh database
+- **Include rollback comments** - Document how to manually reverse changes if needed
+
+### Profile Behavior
+
+| Profile | Flyway | ddl-auto | Notes |
+|---------|--------|----------|-------|
+| Default | enabled | validate | Production-safe |
+| Local | enabled | validate | Allows `flyway:clean` |
+| Docker | enabled | validate | Clean disabled |
+| Test | enabled | validate | Fresh DB per test run |
 
 ## Quality Standards
 
