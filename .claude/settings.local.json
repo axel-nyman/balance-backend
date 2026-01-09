@@ -16,7 +16,8 @@
       "Bash(pkill:*)",
       "Bash(cat:*)",
       "Bash(git rev-parse:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(python3:*)"
     ],
     "deny": [],
     "ask": []
