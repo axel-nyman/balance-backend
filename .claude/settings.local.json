@@ -15,7 +15,8 @@
       "Bash(curl:*)",
       "Bash(pkill:*)",
       "Bash(cat:*)",
-      "Bash(git rev-parse:*)"
+      "Bash(git rev-parse:*)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []
