@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.2.0](https://github.com/axel-nyman/balance-backend/compare/v1.1.0...v1.2.0) (2026-01-09)
+
+
+### Features
+
+* implement Flyway database migrations ([e110c1b](https://github.com/axel-nyman/balance-backend/commit/e110c1bb48b8f3040a100b2a746c278bd4c22795))
+
+
+### Documentation
+
+* add Docker Compose deployment research notes ([90274b9](https://github.com/axel-nyman/balance-backend/commit/90274b9f76a98455cca0f1e7d411ec5b90248dec))
+* add research and planning notes for release-please implementation ([f09f6d7](https://github.com/axel-nyman/balance-backend/commit/f09f6d7f85a8de845699a906aae55b7bd1eaf5ea))
+
 ## [1.1.0](https://github.com/axel-nyman/balance-backend/compare/v1.0.0...v1.1.0) (2026-01-09)
 
 
