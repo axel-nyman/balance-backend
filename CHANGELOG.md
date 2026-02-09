@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.0](https://github.com/axel-nyman/balance-backend/compare/v1.2.1...v1.3.0) (2026-02-09)
+
+
+### Features
+
+* add optional bank account linking to recurring expenses ([538807c](https://github.com/axel-nyman/balance-backend/commit/538807cded40c0d386017400fb03b951d9a0aba7))
+
+
+### Documentation
+
+* **claude:** add research/planning docs ([aff107e](https://github.com/axel-nyman/balance-backend/commit/aff107e7e21c07e745a0f08e8481eb84d051fbd2))
+
 ## [1.2.1](https://github.com/axel-nyman/balance-backend/compare/v1.2.0...v1.2.1) (2026-01-09)
 
 
