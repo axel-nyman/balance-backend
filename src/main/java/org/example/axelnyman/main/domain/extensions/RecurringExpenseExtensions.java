@@ -1,6 +1,8 @@
 package org.example.axelnyman.main.domain.extensions;
 
+import org.example.axelnyman.main.domain.dtos.BudgetDtos.BankAccountSummary;
 import org.example.axelnyman.main.domain.dtos.RecurringExpenseDtos.*;
+import org.example.axelnyman.main.domain.model.BankAccount;
 import org.example.axelnyman.main.domain.model.RecurrenceInterval;
 import org.example.axelnyman.main.domain.model.RecurringExpense;
 
@@ -12,13 +14,18 @@ public final class RecurringExpenseExtensions {
         // Prevent instantiation
     }
 
-    public static RecurringExpenseResponse toResponse(RecurringExpense recurringExpense) {
+    public static RecurringExpenseResponse toResponse(RecurringExpense recurringExpense, BankAccount bankAccount) {
+        BankAccountSummary bankAccountSummary = bankAccount != null
+                ? new BankAccountSummary(bankAccount.getId(), bankAccount.getName(), bankAccount.getCurrentBalance())
+                : null;
+
         return new RecurringExpenseResponse(
                 recurringExpense.getId(),
                 recurringExpense.getName(),
                 recurringExpense.getAmount(),
                 recurringExpense.getRecurrenceInterval().name(),
                 recurringExpense.getIsManual(),
+                bankAccountSummary,
                 recurringExpense.getLastUsedDate(),
                 recurringExpense.getCreatedAt(),
                 recurringExpense.getUpdatedAt()
@@ -27,14 +34,20 @@ public final class RecurringExpenseExtensions {
 
     public static RecurringExpenseListItemResponse toListItemResponse(
             RecurringExpense recurringExpense,
+            BankAccount bankAccount,
             LocalDateTime nextDueDate,
             Boolean isDue) {
+        BankAccountSummary bankAccountSummary = bankAccount != null
+                ? new BankAccountSummary(bankAccount.getId(), bankAccount.getName(), bankAccount.getCurrentBalance())
+                : null;
+
         return new RecurringExpenseListItemResponse(
                 recurringExpense.getId(),
                 recurringExpense.getName(),
                 recurringExpense.getAmount(),
                 recurringExpense.getRecurrenceInterval().name(),
                 recurringExpense.getIsManual(),
+                bankAccountSummary,
                 recurringExpense.getLastUsedDate(),
                 nextDueDate,
                 isDue,
@@ -50,7 +63,8 @@ public final class RecurringExpenseExtensions {
                 request.name(),
                 request.amount(),
                 interval,
-                request.isManual()
+                request.isManual(),
+                request.bankAccountId()
         );
     }
 }

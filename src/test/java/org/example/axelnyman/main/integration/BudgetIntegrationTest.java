@@ -5536,7 +5536,8 @@ public class BudgetIntegrationTest {
                                 name,
                                 amount,
                                 org.example.axelnyman.main.domain.model.RecurrenceInterval.MONTHLY,
-                                false);
+                                false,
+                                null);
                 return recurringExpenseRepository.save(expense);
         }
 

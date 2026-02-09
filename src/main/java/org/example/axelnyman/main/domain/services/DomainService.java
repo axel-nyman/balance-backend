@@ -255,6 +255,18 @@ public class DomainService implements IDomainService {
             throw new DuplicateRecurringExpenseException("Recurring expense with this name already exists");
         }
 
+        // Resolve bank account if provided
+        BankAccount bankAccount = null;
+        if (request.bankAccountId() != null) {
+            bankAccount = dataService.getBankAccountById(request.bankAccountId())
+                    .orElseThrow(() -> new BankAccountNotFoundException(
+                            "Bank account not found with id: " + request.bankAccountId()));
+            if (bankAccount.getDeletedAt() != null) {
+                throw new BankAccountNotFoundException(
+                        "Bank account not found with id: " + request.bankAccountId());
+            }
+        }
+
         // Convert to entity (will throw IllegalArgumentException if invalid enum)
         RecurringExpense expense = RecurringExpenseExtensions.toEntity(request);
 
@@ -262,7 +274,7 @@ public class DomainService implements IDomainService {
         RecurringExpense savedExpense = dataService.saveRecurringExpense(expense);
 
         // Return DTO
-        return RecurringExpenseExtensions.toResponse(savedExpense);
+        return RecurringExpenseExtensions.toResponse(savedExpense, bankAccount);
     }
 
     @Override
@@ -270,7 +282,9 @@ public class DomainService implements IDomainService {
         RecurringExpense expense = dataService.getRecurringExpenseById(id)
                 .orElseThrow(() -> new org.example.axelnyman.main.shared.exceptions.RecurringExpenseNotFoundException(
                         "Recurring expense not found with id: " + id));
-        return RecurringExpenseExtensions.toResponse(expense);
+
+        BankAccount bankAccount = resolveBankAccount(expense.getBankAccountId());
+        return RecurringExpenseExtensions.toResponse(expense, bankAccount);
     }
 
     @Override
@@ -292,16 +306,29 @@ public class DomainService implements IDomainService {
         org.example.axelnyman.main.domain.model.RecurrenceInterval interval =
                 org.example.axelnyman.main.domain.model.RecurrenceInterval.valueOf(request.recurrenceInterval().toUpperCase());
 
+        // Validate and resolve bank account if provided
+        BankAccount bankAccount = null;
+        if (request.bankAccountId() != null) {
+            bankAccount = dataService.getBankAccountById(request.bankAccountId())
+                    .orElseThrow(() -> new BankAccountNotFoundException(
+                            "Bank account not found with id: " + request.bankAccountId()));
+            if (bankAccount.getDeletedAt() != null) {
+                throw new BankAccountNotFoundException(
+                        "Bank account not found with id: " + request.bankAccountId());
+            }
+        }
+
         // Update fields (DO NOT update lastUsedDate - that's only updated when used in a budget)
         expense.setName(request.name());
         expense.setAmount(request.amount());
         expense.setRecurrenceInterval(interval);
         expense.setIsManual(request.isManual());
+        expense.setBankAccountId(request.bankAccountId());
 
         // Save (updatedAt will be auto-updated by JPA auditing)
         RecurringExpense updatedExpense = dataService.saveRecurringExpense(expense);
 
-        return RecurringExpenseExtensions.toResponse(updatedExpense);
+        return RecurringExpenseExtensions.toResponse(updatedExpense, bankAccount);
     }
 
     @Override
@@ -315,8 +342,9 @@ public class DomainService implements IDomainService {
                     // Calculate next due date and isDue flag
                     LocalDateTime nextDueDate = calculateNextDueDate(expense);
                     Boolean isDue = calculateIsDue(expense.getLastUsedDate(), nextDueDate);
+                    BankAccount bankAccount = resolveBankAccount(expense.getBankAccountId());
 
-                    return RecurringExpenseExtensions.toListItemResponse(expense, nextDueDate, isDue);
+                    return RecurringExpenseExtensions.toListItemResponse(expense, bankAccount, nextDueDate, isDue);
                 })
                 .sorted(Comparator.comparing(RecurringExpenseListItemResponse::name))
                 .toList();
@@ -334,6 +362,15 @@ public class DomainService implements IDomainService {
 
         // Perform soft delete
         dataService.deleteRecurringExpense(id);
+    }
+
+    private BankAccount resolveBankAccount(UUID bankAccountId) {
+        if (bankAccountId == null) {
+            return null;
+        }
+        return dataService.getBankAccountById(bankAccountId)
+                .filter(account -> account.getDeletedAt() == null)
+                .orElse(null);
     }
 
     /**

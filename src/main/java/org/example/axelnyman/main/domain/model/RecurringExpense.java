@@ -31,6 +31,13 @@ public final class RecurringExpense {
     @Column(nullable = false)
     private Boolean isManual;
 
+    @Column(name = "bank_account_id")
+    private UUID bankAccountId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "bank_account_id", insertable = false, updatable = false)
+    private BankAccount bankAccount;
+
     @Column(name = "last_used_date")
     private LocalDateTime lastUsedDate;
 
@@ -53,11 +60,12 @@ public final class RecurringExpense {
     }
 
     // Constructor for recurring expense creation
-    public RecurringExpense(String name, BigDecimal amount, RecurrenceInterval recurrenceInterval, Boolean isManual) {
+    public RecurringExpense(String name, BigDecimal amount, RecurrenceInterval recurrenceInterval, Boolean isManual, UUID bankAccountId) {
         this.name = name;
         this.amount = amount;
         this.recurrenceInterval = recurrenceInterval;
         this.isManual = isManual != null ? isManual : false;
+        this.bankAccountId = bankAccountId;
         this.lastUsedDate = null; // Initially null, set when used in budget
     }
 
@@ -100,6 +108,18 @@ public final class RecurringExpense {
 
     public void setIsManual(Boolean isManual) {
         this.isManual = isManual;
+    }
+
+    public UUID getBankAccountId() {
+        return bankAccountId;
+    }
+
+    public void setBankAccountId(UUID bankAccountId) {
+        this.bankAccountId = bankAccountId;
+    }
+
+    public BankAccount getBankAccount() {
+        return bankAccount;
     }
 
     public LocalDateTime getLastUsedDate() {

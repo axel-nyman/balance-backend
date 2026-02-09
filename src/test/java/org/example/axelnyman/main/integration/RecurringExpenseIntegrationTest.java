@@ -1,6 +1,7 @@
 package org.example.axelnyman.main.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.example.axelnyman.main.infrastructure.data.context.BankAccountRepository;
 import org.example.axelnyman.main.infrastructure.data.context.RecurringExpenseRepository;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,6 +54,9 @@ public class RecurringExpenseIntegrationTest {
         private RecurringExpenseRepository recurringExpenseRepository;
 
         @Autowired
+        private BankAccountRepository bankAccountRepository;
+
+        @Autowired
         private ObjectMapper objectMapper;
 
         private MockMvc mockMvc;
@@ -65,6 +69,7 @@ public class RecurringExpenseIntegrationTest {
 
                 // Clean database state between tests
                 recurringExpenseRepository.deleteAll();
+                bankAccountRepository.deleteAll();
         }
 
         @AfterAll
@@ -957,6 +962,308 @@ public class RecurringExpenseIntegrationTest {
                                 .andExpect(jsonPath("$.amount", is(150.00)));
         }
 
+        // ========== BANK ACCOUNT LINK TESTS ==========
+
+        @Test
+        void shouldCreateRecurringExpenseWithBankAccount() throws Exception {
+                // Given
+                var bankAccount = createBankAccountEntity("Checking Account", "Main account", new BigDecimal("5000.00"));
+
+                var request = new java.util.HashMap<String, Object>();
+                request.put("name", "Netflix Subscription");
+                request.put("amount", new BigDecimal("15.99"));
+                request.put("recurrenceInterval", "MONTHLY");
+                request.put("isManual", false);
+                request.put("bankAccountId", bankAccount.getId().toString());
+
+                // When & Then
+                mockMvc.perform(post("/api/recurring-expenses")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.name", is("Netflix Subscription")))
+                                .andExpect(jsonPath("$.bankAccount.id", is(bankAccount.getId().toString())))
+                                .andExpect(jsonPath("$.bankAccount.name", is("Checking Account")))
+                                .andExpect(jsonPath("$.bankAccount.currentBalance", is(5000.00)));
+        }
+
+        @Test
+        void shouldCreateRecurringExpenseWithoutBankAccount() throws Exception {
+                // Given
+                var request = new java.util.HashMap<String, Object>();
+                request.put("name", "Netflix Subscription");
+                request.put("amount", new BigDecimal("15.99"));
+                request.put("recurrenceInterval", "MONTHLY");
+                request.put("isManual", false);
+
+                // When & Then
+                mockMvc.perform(post("/api/recurring-expenses")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.name", is("Netflix Subscription")))
+                                .andExpect(jsonPath("$.bankAccount").value(nullValue()));
+        }
+
+        @Test
+        void shouldReturnNotFoundWhenCreatingWithNonExistentBankAccount() throws Exception {
+                // Given
+                var request = new java.util.HashMap<String, Object>();
+                request.put("name", "Netflix Subscription");
+                request.put("amount", new BigDecimal("15.99"));
+                request.put("recurrenceInterval", "MONTHLY");
+                request.put("isManual", false);
+                request.put("bankAccountId", java.util.UUID.randomUUID().toString());
+
+                // When & Then
+                mockMvc.perform(post("/api/recurring-expenses")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.error", containsString("Bank account not found")));
+        }
+
+        @Test
+        void shouldReturnNotFoundWhenCreatingWithDeletedBankAccount() throws Exception {
+                // Given
+                var bankAccount = createBankAccountEntity("Deleted Account", "To be deleted", new BigDecimal("1000.00"));
+                bankAccount.setDeletedAt(java.time.LocalDateTime.now());
+                bankAccountRepository.save(bankAccount);
+
+                var request = new java.util.HashMap<String, Object>();
+                request.put("name", "Netflix Subscription");
+                request.put("amount", new BigDecimal("15.99"));
+                request.put("recurrenceInterval", "MONTHLY");
+                request.put("isManual", false);
+                request.put("bankAccountId", bankAccount.getId().toString());
+
+                // When & Then
+                mockMvc.perform(post("/api/recurring-expenses")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.error", containsString("Bank account not found")));
+        }
+
+        @Test
+        void shouldUpdateRecurringExpenseWithBankAccount() throws Exception {
+                // Given
+                java.util.UUID expenseId = createRecurringExpense("Test Expense", "100.00", "MONTHLY");
+                var bankAccount = createBankAccountEntity("Savings Account", "My savings", new BigDecimal("10000.00"));
+
+                var updateRequest = new java.util.HashMap<String, Object>();
+                updateRequest.put("name", "Test Expense");
+                updateRequest.put("amount", new BigDecimal("100.00"));
+                updateRequest.put("recurrenceInterval", "MONTHLY");
+                updateRequest.put("isManual", false);
+                updateRequest.put("bankAccountId", bankAccount.getId().toString());
+
+                // When & Then
+                mockMvc.perform(put("/api/recurring-expenses/" + expenseId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.bankAccount.id", is(bankAccount.getId().toString())))
+                                .andExpect(jsonPath("$.bankAccount.name", is("Savings Account")))
+                                .andExpect(jsonPath("$.bankAccount.currentBalance", is(10000.00)));
+        }
+
+        @Test
+        void shouldUpdateRecurringExpenseToRemoveBankAccount() throws Exception {
+                // Given - create expense with bank account
+                var bankAccount = createBankAccountEntity("Checking Account", "Main", new BigDecimal("5000.00"));
+
+                var createRequest = new java.util.HashMap<String, Object>();
+                createRequest.put("name", "Linked Expense");
+                createRequest.put("amount", new BigDecimal("50.00"));
+                createRequest.put("recurrenceInterval", "MONTHLY");
+                createRequest.put("isManual", false);
+                createRequest.put("bankAccountId", bankAccount.getId().toString());
+
+                String createResponse = mockMvc.perform(post("/api/recurring-expenses")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(createRequest)))
+                                .andExpect(status().isCreated())
+                                .andReturn().getResponse().getContentAsString();
+
+                java.util.UUID expenseId = java.util.UUID.fromString(
+                                objectMapper.readTree(createResponse).get("id").asText());
+
+                // When - update to remove bank account (bankAccountId = null)
+                var updateRequest = new java.util.HashMap<String, Object>();
+                updateRequest.put("name", "Linked Expense");
+                updateRequest.put("amount", new BigDecimal("50.00"));
+                updateRequest.put("recurrenceInterval", "MONTHLY");
+                updateRequest.put("isManual", false);
+                // bankAccountId intentionally omitted (null)
+
+                // Then
+                mockMvc.perform(put("/api/recurring-expenses/" + expenseId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.bankAccount").value(nullValue()));
+        }
+
+        @Test
+        void shouldUpdateRecurringExpenseToChangeBankAccount() throws Exception {
+                // Given - create expense with first bank account
+                var bankAccount1 = createBankAccountEntity("Account 1", "First", new BigDecimal("1000.00"));
+                var bankAccount2 = createBankAccountEntity("Account 2", "Second", new BigDecimal("2000.00"));
+
+                var createRequest = new java.util.HashMap<String, Object>();
+                createRequest.put("name", "Changing Account Expense");
+                createRequest.put("amount", new BigDecimal("75.00"));
+                createRequest.put("recurrenceInterval", "MONTHLY");
+                createRequest.put("isManual", false);
+                createRequest.put("bankAccountId", bankAccount1.getId().toString());
+
+                String createResponse = mockMvc.perform(post("/api/recurring-expenses")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(createRequest)))
+                                .andExpect(status().isCreated())
+                                .andReturn().getResponse().getContentAsString();
+
+                java.util.UUID expenseId = java.util.UUID.fromString(
+                                objectMapper.readTree(createResponse).get("id").asText());
+
+                // When - update to use second bank account
+                var updateRequest = new java.util.HashMap<String, Object>();
+                updateRequest.put("name", "Changing Account Expense");
+                updateRequest.put("amount", new BigDecimal("75.00"));
+                updateRequest.put("recurrenceInterval", "MONTHLY");
+                updateRequest.put("isManual", false);
+                updateRequest.put("bankAccountId", bankAccount2.getId().toString());
+
+                // Then
+                mockMvc.perform(put("/api/recurring-expenses/" + expenseId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.bankAccount.id", is(bankAccount2.getId().toString())))
+                                .andExpect(jsonPath("$.bankAccount.name", is("Account 2")));
+        }
+
+        @Test
+        void shouldReturnNotFoundWhenUpdatingWithNonExistentBankAccount() throws Exception {
+                // Given
+                java.util.UUID expenseId = createRecurringExpense("Test Expense", "100.00", "MONTHLY");
+
+                var updateRequest = new java.util.HashMap<String, Object>();
+                updateRequest.put("name", "Test Expense");
+                updateRequest.put("amount", new BigDecimal("100.00"));
+                updateRequest.put("recurrenceInterval", "MONTHLY");
+                updateRequest.put("isManual", false);
+                updateRequest.put("bankAccountId", java.util.UUID.randomUUID().toString());
+
+                // When & Then
+                mockMvc.perform(put("/api/recurring-expenses/" + expenseId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateRequest)))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.error", containsString("Bank account not found")));
+        }
+
+        @Test
+        void shouldGetRecurringExpenseWithBankAccount() throws Exception {
+                // Given - create expense with bank account
+                var bankAccount = createBankAccountEntity("Checking Account", "Main", new BigDecimal("5000.00"));
+
+                var request = new java.util.HashMap<String, Object>();
+                request.put("name", "Linked Expense");
+                request.put("amount", new BigDecimal("50.00"));
+                request.put("recurrenceInterval", "MONTHLY");
+                request.put("isManual", false);
+                request.put("bankAccountId", bankAccount.getId().toString());
+
+                String createResponse = mockMvc.perform(post("/api/recurring-expenses")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isCreated())
+                                .andReturn().getResponse().getContentAsString();
+
+                java.util.UUID expenseId = java.util.UUID.fromString(
+                                objectMapper.readTree(createResponse).get("id").asText());
+
+                // When & Then - GET by ID
+                mockMvc.perform(get("/api/recurring-expenses/" + expenseId)
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.bankAccount.id", is(bankAccount.getId().toString())))
+                                .andExpect(jsonPath("$.bankAccount.name", is("Checking Account")))
+                                .andExpect(jsonPath("$.bankAccount.currentBalance", is(5000.00)));
+        }
+
+        @Test
+        void shouldGetAllRecurringExpensesWithBankAccounts() throws Exception {
+                // Given - create expenses, some with bank accounts
+                var bankAccount = createBankAccountEntity("Checking Account", "Main", new BigDecimal("5000.00"));
+
+                // Expense with bank account
+                var request1 = new java.util.HashMap<String, Object>();
+                request1.put("name", "Linked Expense");
+                request1.put("amount", new BigDecimal("50.00"));
+                request1.put("recurrenceInterval", "MONTHLY");
+                request1.put("isManual", false);
+                request1.put("bankAccountId", bankAccount.getId().toString());
+
+                mockMvc.perform(post("/api/recurring-expenses")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request1)))
+                                .andExpect(status().isCreated());
+
+                // Expense without bank account
+                createRecurringExpense("Unlinked Expense", "100.00", "YEARLY");
+
+                // When & Then
+                mockMvc.perform(get("/api/recurring-expenses")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.expenses", hasSize(2)))
+                                // Sorted alphabetically: Linked, Unlinked
+                                .andExpect(jsonPath("$.expenses[0].name", is("Linked Expense")))
+                                .andExpect(jsonPath("$.expenses[0].bankAccount.id", is(bankAccount.getId().toString())))
+                                .andExpect(jsonPath("$.expenses[0].bankAccount.name", is("Checking Account")))
+                                .andExpect(jsonPath("$.expenses[1].name", is("Unlinked Expense")))
+                                .andExpect(jsonPath("$.expenses[1].bankAccount").value(nullValue()));
+        }
+
+        @Test
+        void shouldReturnNullBankAccountWhenLinkedAccountIsDeleted() throws Exception {
+                // Given - create expense linked to bank account
+                var bankAccount = createBankAccountEntity("Soon Deleted", "Will be deleted", new BigDecimal("1000.00"));
+
+                var request = new java.util.HashMap<String, Object>();
+                request.put("name", "Orphaned Expense");
+                request.put("amount", new BigDecimal("50.00"));
+                request.put("recurrenceInterval", "MONTHLY");
+                request.put("isManual", false);
+                request.put("bankAccountId", bankAccount.getId().toString());
+
+                String createResponse = mockMvc.perform(post("/api/recurring-expenses")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.bankAccount.id", is(bankAccount.getId().toString())))
+                                .andReturn().getResponse().getContentAsString();
+
+                java.util.UUID expenseId = java.util.UUID.fromString(
+                                objectMapper.readTree(createResponse).get("id").asText());
+
+                // Soft-delete the bank account
+                bankAccount.setDeletedAt(java.time.LocalDateTime.now());
+                bankAccountRepository.save(bankAccount);
+
+                // When & Then - GET should return bankAccount as null
+                mockMvc.perform(get("/api/recurring-expenses/" + expenseId)
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.name", is("Orphaned Expense")))
+                                .andExpect(jsonPath("$.bankAccount").value(nullValue()));
+        }
+
+        // ========== HELPER METHODS ==========
+
         // Helper method to create recurring expense via API
         private java.util.UUID createRecurringExpense(String name, String amount, String interval) throws Exception {
                 var request = new java.util.HashMap<String, Object>();
@@ -972,5 +1279,13 @@ public class RecurringExpenseIntegrationTest {
                                 .andReturn().getResponse().getContentAsString();
 
                 return java.util.UUID.fromString(objectMapper.readTree(response).get("id").asText());
+        }
+
+        // Helper method to create bank account entity directly via repository
+        private org.example.axelnyman.main.domain.model.BankAccount createBankAccountEntity(
+                        String name, String description, BigDecimal initialBalance) {
+                org.example.axelnyman.main.domain.model.BankAccount account =
+                                new org.example.axelnyman.main.domain.model.BankAccount(name, description, initialBalance);
+                return bankAccountRepository.save(account);
         }
 }

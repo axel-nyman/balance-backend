@@ -4,6 +4,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
+import org.example.axelnyman.main.domain.dtos.BudgetDtos.BankAccountSummary;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -22,7 +24,9 @@ public class RecurringExpenseDtos {
             String recurrenceInterval,
 
             @NotNull(message = "isManual is required")
-            Boolean isManual
+            Boolean isManual,
+
+            UUID bankAccountId
     ) {}
 
     public record UpdateRecurringExpenseRequest(
@@ -37,7 +41,9 @@ public class RecurringExpenseDtos {
             String recurrenceInterval,
 
             @NotNull(message = "isManual is required")
-            Boolean isManual
+            Boolean isManual,
+
+            UUID bankAccountId
     ) {}
 
     public record RecurringExpenseResponse(
@@ -46,6 +52,7 @@ public class RecurringExpenseDtos {
             BigDecimal amount,
             String recurrenceInterval,
             Boolean isManual,
+            BankAccountSummary bankAccount,
             LocalDateTime lastUsedDate,
             LocalDateTime createdAt,
             LocalDateTime updatedAt
@@ -57,6 +64,7 @@ public class RecurringExpenseDtos {
             BigDecimal amount,
             String recurrenceInterval,
             Boolean isManual,
+            BankAccountSummary bankAccount,
             LocalDateTime lastUsedDate,
             LocalDateTime nextDueDate,
             Boolean isDue,
