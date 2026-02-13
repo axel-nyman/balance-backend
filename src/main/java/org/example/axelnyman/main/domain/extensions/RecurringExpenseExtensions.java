@@ -6,8 +6,6 @@ import org.example.axelnyman.main.domain.model.BankAccount;
 import org.example.axelnyman.main.domain.model.RecurrenceInterval;
 import org.example.axelnyman.main.domain.model.RecurringExpense;
 
-import java.time.LocalDateTime;
-
 public final class RecurringExpenseExtensions {
 
     private RecurringExpenseExtensions() {
@@ -35,7 +33,9 @@ public final class RecurringExpenseExtensions {
     public static RecurringExpenseListItemResponse toListItemResponse(
             RecurringExpense recurringExpense,
             BankAccount bankAccount,
-            LocalDateTime nextDueDate,
+            Integer dueMonth,
+            Integer dueYear,
+            String dueDisplay,
             Boolean isDue) {
         BankAccountSummary bankAccountSummary = bankAccount != null
                 ? new BankAccountSummary(bankAccount.getId(), bankAccount.getName(), bankAccount.getCurrentBalance())
@@ -49,7 +49,9 @@ public final class RecurringExpenseExtensions {
                 recurringExpense.getIsManual(),
                 bankAccountSummary,
                 recurringExpense.getLastUsedDate(),
-                nextDueDate,
+                dueMonth,
+                dueYear,
+                dueDisplay,
                 isDue,
                 recurringExpense.getCreatedAt()
         );

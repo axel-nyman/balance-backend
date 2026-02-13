@@ -44,6 +44,12 @@ public final class RecurringExpense {
     @Column(name = "last_used_budget_id")
     private UUID lastUsedBudgetId;
 
+    @Column(name = "last_used_month")
+    private Integer lastUsedMonth;
+
+    @Column(name = "last_used_year")
+    private Integer lastUsedYear;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -136,6 +142,22 @@ public final class RecurringExpense {
 
     public void setLastUsedBudgetId(UUID lastUsedBudgetId) {
         this.lastUsedBudgetId = lastUsedBudgetId;
+    }
+
+    public Integer getLastUsedMonth() {
+        return lastUsedMonth;
+    }
+
+    public void setLastUsedMonth(Integer lastUsedMonth) {
+        this.lastUsedMonth = lastUsedMonth;
+    }
+
+    public Integer getLastUsedYear() {
+        return lastUsedYear;
+    }
+
+    public void setLastUsedYear(Integer lastUsedYear) {
+        this.lastUsedYear = lastUsedYear;
     }
 
     public LocalDateTime getCreatedAt() {

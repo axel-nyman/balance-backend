@@ -67,6 +67,8 @@ import java.util.stream.Collectors;
 @Service
 public class DomainService implements IDomainService {
 
+    private record DueDate(int month, int year) {}
+
     private final IDataService dataService;
 
     public DomainService(IDataService dataService) {
@@ -339,12 +341,16 @@ public class DomainService implements IDomainService {
         // Map to list item responses with due date calculation
         List<RecurringExpenseListItemResponse> expenseResponses = expenses.stream()
                 .map(expense -> {
-                    // Calculate next due date and isDue flag
-                    LocalDateTime nextDueDate = calculateNextDueDate(expense);
-                    Boolean isDue = calculateIsDue(expense.getLastUsedDate(), nextDueDate);
+                    DueDate dueDate = calculateNextDueDate(expense);
+                    Boolean isDue = calculateIsDue(expense, dueDate);
+                    String dueDisplay = formatDueDisplay(dueDate);
                     BankAccount bankAccount = resolveBankAccount(expense.getBankAccountId());
 
-                    return RecurringExpenseExtensions.toListItemResponse(expense, bankAccount, nextDueDate, isDue);
+                    return RecurringExpenseExtensions.toListItemResponse(
+                            expense, bankAccount,
+                            dueDate != null ? dueDate.month() : null,
+                            dueDate != null ? dueDate.year() : null,
+                            dueDisplay, isDue);
                 })
                 .sorted(Comparator.comparing(RecurringExpenseListItemResponse::name))
                 .toList();
@@ -373,50 +379,57 @@ public class DomainService implements IDomainService {
                 .orElse(null);
     }
 
-    /**
-     * Calculate the next due date for a recurring expense based on its recurrence interval
-     * and last used date.
-     *
-     * @param expense The recurring expense
-     * @return The next due date, or null if the expense has never been used
-     */
-    private LocalDateTime calculateNextDueDate(RecurringExpense expense) {
-        LocalDateTime lastUsedDate = expense.getLastUsedDate();
+    private DueDate calculateNextDueDate(RecurringExpense expense) {
+        Integer lastMonth = expense.getLastUsedMonth();
+        Integer lastYear = expense.getLastUsedYear();
 
-        // If never used, next due date is null
-        if (lastUsedDate == null) {
+        if (lastMonth == null || lastYear == null) {
             return null;
         }
 
-        // Calculate next due date based on interval
-        return switch (expense.getRecurrenceInterval()) {
-            case MONTHLY -> lastUsedDate.plusMonths(1);
-            case QUARTERLY -> lastUsedDate.plusMonths(3);
-            case BIANNUALLY -> lastUsedDate.plusMonths(6);
-            case YEARLY -> lastUsedDate.plusYears(1);
+        int monthsToAdd = switch (expense.getRecurrenceInterval()) {
+            case MONTHLY -> 1;
+            case QUARTERLY -> 3;
+            case BIANNUALLY -> 6;
+            case YEARLY -> 12;
         };
+
+        int totalMonths = (lastYear * 12 + lastMonth - 1) + monthsToAdd;
+        int dueMonth = (totalMonths % 12) + 1;
+        int dueYear = totalMonths / 12;
+
+        return new DueDate(dueMonth, dueYear);
     }
 
-    /**
-     * Determine if a recurring expense is currently due.
-     *
-     * @param lastUsedDate The last used date
-     * @param nextDueDate The calculated next due date
-     * @return true if the expense is due, false otherwise
-     */
-    private Boolean calculateIsDue(LocalDateTime lastUsedDate, LocalDateTime nextDueDate) {
-        // If never used, always due
-        if (lastUsedDate == null) {
+    private Boolean calculateIsDue(RecurringExpense expense, DueDate dueDate) {
+        if (expense.getLastUsedMonth() == null) {
             return true;
         }
-
-        // If next due date is null (shouldn't happen if lastUsedDate is not null), consider not due
-        if (nextDueDate == null) {
+        if (dueDate == null) {
             return false;
         }
 
-        // Due if next due date is today or in the past
-        return nextDueDate.isBefore(LocalDateTime.now()) || nextDueDate.isEqual(LocalDateTime.now());
+        LocalDate now = LocalDate.now();
+        int currentMonth = now.getMonthValue();
+        int currentYear = now.getYear();
+
+        return (dueDate.year() < currentYear) ||
+               (dueDate.year() == currentYear && dueDate.month() <= currentMonth);
+    }
+
+    private String formatDueDisplay(DueDate dueDate) {
+        if (dueDate == null) {
+            return null;
+        }
+
+        String monthName = java.time.Month.of(dueDate.month())
+                .getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH);
+
+        int currentYear = LocalDate.now().getYear();
+        if (dueDate.year() == currentYear) {
+            return monthName;
+        }
+        return monthName + " " + dueDate.year();
     }
 
     @Override
@@ -834,24 +847,21 @@ public class DomainService implements IDomainService {
         updateBalancesForBudget(budgetId, savedBudget);
 
         // Update recurring expenses for this budget
-        updateRecurringExpensesForBudget(budgetId, lockedAt);
+        updateRecurringExpensesForBudget(budgetId, lockedAt, savedBudget.getMonth(), savedBudget.getYear());
 
         // Return DTO
         return BudgetExtensions.toResponse(savedBudget);
     }
 
-    private void updateRecurringExpensesForBudget(UUID budgetId, LocalDateTime lockedAt) {
-        // Get all budget expenses for this budget
+    private void updateRecurringExpensesForBudget(UUID budgetId, LocalDateTime lockedAt, Integer budgetMonth, Integer budgetYear) {
         List<BudgetExpense> budgetExpenses = dataService.getBudgetExpensesByBudgetId(budgetId);
 
-        // Filter to only those with non-null recurringExpenseId
         List<UUID> recurringExpenseIds = budgetExpenses.stream()
                 .filter(expense -> expense.getRecurringExpenseId() != null)
                 .map(BudgetExpense::getRecurringExpenseId)
                 .distinct()
                 .toList();
 
-        // For each unique recurring expense, update lastUsedDate and lastUsedBudgetId
         for (UUID recurringExpenseId : recurringExpenseIds) {
             RecurringExpense recurringExpense = dataService.getRecurringExpenseById(recurringExpenseId)
                     .orElseThrow(() -> new IllegalStateException(
@@ -859,6 +869,8 @@ public class DomainService implements IDomainService {
 
             recurringExpense.setLastUsedDate(lockedAt);
             recurringExpense.setLastUsedBudgetId(budgetId);
+            recurringExpense.setLastUsedMonth(budgetMonth);
+            recurringExpense.setLastUsedYear(budgetYear);
             dataService.saveRecurringExpense(recurringExpense);
         }
     }
@@ -1002,14 +1014,16 @@ public class DomainService implements IDomainService {
                 );
 
                 if (!previousBudgets.isEmpty()) {
-                    // Get the most recent previous budget (first in list due to DESC ordering)
                     Budget previousBudget = previousBudgets.get(0);
                     recurringExpense.setLastUsedDate(previousBudget.getLockedAt());
                     recurringExpense.setLastUsedBudgetId(previousBudget.getId());
+                    recurringExpense.setLastUsedMonth(previousBudget.getMonth());
+                    recurringExpense.setLastUsedYear(previousBudget.getYear());
                 } else {
-                    // No previous locked budget found, reset to null
                     recurringExpense.setLastUsedDate(null);
                     recurringExpense.setLastUsedBudgetId(null);
+                    recurringExpense.setLastUsedMonth(null);
+                    recurringExpense.setLastUsedYear(null);
                 }
 
                 dataService.saveRecurringExpense(recurringExpense);

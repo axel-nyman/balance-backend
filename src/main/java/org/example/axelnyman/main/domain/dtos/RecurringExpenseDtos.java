@@ -66,7 +66,9 @@ public class RecurringExpenseDtos {
             Boolean isManual,
             BankAccountSummary bankAccount,
             LocalDateTime lastUsedDate,
-            LocalDateTime nextDueDate,
+            Integer dueMonth,
+            Integer dueYear,
+            String dueDisplay,
             Boolean isDue,
             LocalDateTime createdAt
     ) {}

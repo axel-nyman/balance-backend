@@ -352,7 +352,7 @@ public class RecurringExpenseIntegrationTest {
 
         @Test
         void shouldCalculateNextDueDateForNeverUsedExpense() throws Exception {
-                // Given - create expense that has never been used (lastUsedDate = null)
+                // Given - create expense that has never been used (lastUsedMonth/Year = null)
                 createRecurringExpense("Never Used Expense", "50.00", "MONTHLY");
 
                 // When & Then
@@ -361,104 +361,107 @@ public class RecurringExpenseIntegrationTest {
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.expenses", hasSize(1)))
                                 .andExpect(jsonPath("$.expenses[0].lastUsedDate").value(nullValue()))
-                                .andExpect(jsonPath("$.expenses[0].nextDueDate").value(nullValue()))
-                                .andExpect(jsonPath("$.expenses[0].isDue", is(true))); // Always due if never used
+                                .andExpect(jsonPath("$.expenses[0].dueMonth").value(nullValue()))
+                                .andExpect(jsonPath("$.expenses[0].dueYear").value(nullValue()))
+                                .andExpect(jsonPath("$.expenses[0].dueDisplay").value(nullValue()))
+                                .andExpect(jsonPath("$.expenses[0].isDue", is(true)));
         }
 
         @Test
         void shouldCalculateNextDueDateForMonthlyInterval() throws Exception {
-                // Given - create expense with MONTHLY interval
+                // Given - create expense with MONTHLY interval, last used 2 months ago
                 java.util.UUID expenseId = createRecurringExpense("Monthly Bill", "100.00", "MONTHLY");
 
-                // Set lastUsedDate to 2 months ago (so it's past due)
                 var expense = recurringExpenseRepository.findById(expenseId).orElseThrow();
-                java.time.LocalDateTime lastUsed = java.time.LocalDateTime.now().minusMonths(2);
-                expense.setLastUsedDate(lastUsed);
+                java.time.LocalDate twoMonthsAgo = java.time.LocalDate.now().minusMonths(2);
+                expense.setLastUsedMonth(twoMonthsAgo.getMonthValue());
+                expense.setLastUsedYear(twoMonthsAgo.getYear());
                 recurringExpenseRepository.save(expense);
 
-                // Expected next due date = lastUsed + 1 month (which is 1 month ago, so past
-                // due)
+                // Expected: dueMonth = twoMonthsAgo + 1 month = 1 month ago (past due)
+                java.time.LocalDate expectedDue = twoMonthsAgo.plusMonths(1);
 
                 // When & Then
                 mockMvc.perform(get("/api/recurring-expenses")
                                 .contentType(MediaType.APPLICATION_JSON))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.expenses", hasSize(1)))
-                                .andExpect(jsonPath("$.expenses[0].nextDueDate").exists())
-                                .andExpect(jsonPath("$.expenses[0].isDue", is(true))); // 2 months ago means it's past
-                                                                                       // due
+                                .andExpect(jsonPath("$.expenses[0].dueMonth", is(expectedDue.getMonthValue())))
+                                .andExpect(jsonPath("$.expenses[0].dueYear", is(expectedDue.getYear())))
+                                .andExpect(jsonPath("$.expenses[0].dueDisplay").exists())
+                                .andExpect(jsonPath("$.expenses[0].isDue", is(true)));
         }
 
         @Test
         void shouldCalculateNextDueDateForQuarterlyInterval() throws Exception {
-                // Given - create expense with QUARTERLY interval
+                // Given - create expense with QUARTERLY interval, last used 2 months ago
                 java.util.UUID expenseId = createRecurringExpense("Quarterly Tax", "500.00", "QUARTERLY");
 
-                // Set lastUsedDate to 2 months ago
                 var expense = recurringExpenseRepository.findById(expenseId).orElseThrow();
-                java.time.LocalDateTime lastUsed = java.time.LocalDateTime.now().minusMonths(2);
-                expense.setLastUsedDate(lastUsed);
+                java.time.LocalDate twoMonthsAgo = java.time.LocalDate.now().minusMonths(2);
+                expense.setLastUsedMonth(twoMonthsAgo.getMonthValue());
+                expense.setLastUsedYear(twoMonthsAgo.getYear());
                 recurringExpenseRepository.save(expense);
 
-                // Expected next due date = lastUsed + 3 months
-                @SuppressWarnings("unused")
-                java.time.LocalDateTime expectedNextDue = lastUsed.plusMonths(3);
+                // Expected: dueMonth = twoMonthsAgo + 3 months = 1 month in the future
+                java.time.LocalDate expectedDue = twoMonthsAgo.plusMonths(3);
 
-                // When & Then - should not be due yet (2 months < 3 months)
+                // When & Then - should not be due yet (due next month)
                 mockMvc.perform(get("/api/recurring-expenses")
                                 .contentType(MediaType.APPLICATION_JSON))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.expenses", hasSize(1)))
-                                .andExpect(jsonPath("$.expenses[0].nextDueDate").exists())
-                                .andExpect(jsonPath("$.expenses[0].isDue", is(false))); // Not due yet
+                                .andExpect(jsonPath("$.expenses[0].dueMonth", is(expectedDue.getMonthValue())))
+                                .andExpect(jsonPath("$.expenses[0].dueYear", is(expectedDue.getYear())))
+                                .andExpect(jsonPath("$.expenses[0].isDue", is(false)));
         }
 
         @Test
         void shouldCalculateNextDueDateForBiannuallyInterval() throws Exception {
-                // Given - create expense with BIANNUALLY interval
+                // Given - create expense with BIANNUALLY interval, last used 7 months ago
                 java.util.UUID expenseId = createRecurringExpense("Car Insurance", "800.00", "BIANNUALLY");
 
-                // Set lastUsedDate to 7 months ago
                 var expense = recurringExpenseRepository.findById(expenseId).orElseThrow();
-                java.time.LocalDateTime lastUsed = java.time.LocalDateTime.now().minusMonths(7);
-                expense.setLastUsedDate(lastUsed);
+                java.time.LocalDate sevenMonthsAgo = java.time.LocalDate.now().minusMonths(7);
+                expense.setLastUsedMonth(sevenMonthsAgo.getMonthValue());
+                expense.setLastUsedYear(sevenMonthsAgo.getYear());
                 recurringExpenseRepository.save(expense);
 
-                // Expected next due date = lastUsed + 6 months
-                @SuppressWarnings("unused")
-                java.time.LocalDateTime expectedNextDue = lastUsed.plusMonths(6);
+                // Expected: dueMonth = sevenMonthsAgo + 6 months = 1 month ago (past due)
+                java.time.LocalDate expectedDue = sevenMonthsAgo.plusMonths(6);
 
-                // When & Then - should be due (7 months > 6 months)
+                // When & Then - should be due (past due by 1 month)
                 mockMvc.perform(get("/api/recurring-expenses")
                                 .contentType(MediaType.APPLICATION_JSON))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.expenses", hasSize(1)))
-                                .andExpect(jsonPath("$.expenses[0].nextDueDate").exists())
-                                .andExpect(jsonPath("$.expenses[0].isDue", is(true))); // Past due
+                                .andExpect(jsonPath("$.expenses[0].dueMonth", is(expectedDue.getMonthValue())))
+                                .andExpect(jsonPath("$.expenses[0].dueYear", is(expectedDue.getYear())))
+                                .andExpect(jsonPath("$.expenses[0].isDue", is(true)));
         }
 
         @Test
         void shouldCalculateNextDueDateForYearlyInterval() throws Exception {
-                // Given - create expense with YEARLY interval
+                // Given - create expense with YEARLY interval, last used 11 months ago
                 java.util.UUID expenseId = createRecurringExpense("Annual Subscription", "1200.00", "YEARLY");
 
-                // Set lastUsedDate to 11 months ago
                 var expense = recurringExpenseRepository.findById(expenseId).orElseThrow();
-                java.time.LocalDateTime lastUsed = java.time.LocalDateTime.now().minusMonths(11);
-                expense.setLastUsedDate(lastUsed);
+                java.time.LocalDate elevenMonthsAgo = java.time.LocalDate.now().minusMonths(11);
+                expense.setLastUsedMonth(elevenMonthsAgo.getMonthValue());
+                expense.setLastUsedYear(elevenMonthsAgo.getYear());
                 recurringExpenseRepository.save(expense);
 
-                // Expected next due date = lastUsed + 1 year
-                @SuppressWarnings("unused")
-                java.time.LocalDateTime expectedNextDue = lastUsed.plusYears(1);
+                // Expected: dueMonth = elevenMonthsAgo + 12 months = 1 month in the future
+                java.time.LocalDate expectedDue = elevenMonthsAgo.plusMonths(12);
 
-                // When & Then - should not be due yet (11 months < 12 months)
+                // When & Then - should not be due yet (due next month)
                 mockMvc.perform(get("/api/recurring-expenses")
                                 .contentType(MediaType.APPLICATION_JSON))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.expenses", hasSize(1)))
-                                .andExpect(jsonPath("$.expenses[0].nextDueDate").exists())
-                                .andExpect(jsonPath("$.expenses[0].isDue", is(false))); // Not due yet
+                                .andExpect(jsonPath("$.expenses[0].dueMonth", is(expectedDue.getMonthValue())))
+                                .andExpect(jsonPath("$.expenses[0].dueYear", is(expectedDue.getYear())))
+                                .andExpect(jsonPath("$.expenses[0].isDue", is(false)));
         }
 
         @Test
@@ -514,14 +517,16 @@ public class RecurringExpenseIntegrationTest {
 
         @Test
         void shouldMarkExpenseAsDueWhenNextDueDateIsPast() throws Exception {
-                // Given - create expense with lastUsedDate 2 months ago and MONTHLY interval
+                // Given - create expense with lastUsedMonth 2 months ago and MONTHLY interval
                 java.util.UUID expenseId = createRecurringExpense("Overdue Expense", "100.00", "MONTHLY");
 
                 var expense = recurringExpenseRepository.findById(expenseId).orElseThrow();
-                expense.setLastUsedDate(java.time.LocalDateTime.now().minusMonths(2));
+                java.time.LocalDate twoMonthsAgo = java.time.LocalDate.now().minusMonths(2);
+                expense.setLastUsedMonth(twoMonthsAgo.getMonthValue());
+                expense.setLastUsedYear(twoMonthsAgo.getYear());
                 recurringExpenseRepository.save(expense);
 
-                // When & Then - should be marked as due
+                // When & Then - should be marked as due (due month is 1 month ago)
                 mockMvc.perform(get("/api/recurring-expenses")
                                 .contentType(MediaType.APPLICATION_JSON))
                                 .andExpect(status().isOk())
@@ -530,14 +535,16 @@ public class RecurringExpenseIntegrationTest {
 
         @Test
         void shouldMarkExpenseAsNotDueWhenNextDueDateIsFuture() throws Exception {
-                // Given - create expense with lastUsedDate 1 day ago and MONTHLY interval
+                // Given - create expense with lastUsedMonth set to current month (MONTHLY interval)
                 java.util.UUID expenseId = createRecurringExpense("Recent Expense", "100.00", "MONTHLY");
 
                 var expense = recurringExpenseRepository.findById(expenseId).orElseThrow();
-                expense.setLastUsedDate(java.time.LocalDateTime.now().minusDays(1));
+                java.time.LocalDate now = java.time.LocalDate.now();
+                expense.setLastUsedMonth(now.getMonthValue());
+                expense.setLastUsedYear(now.getYear());
                 recurringExpenseRepository.save(expense);
 
-                // When & Then - should not be marked as due (only 1 day < 1 month)
+                // When & Then - due next month, so not due yet
                 mockMvc.perform(get("/api/recurring-expenses")
                                 .contentType(MediaType.APPLICATION_JSON))
                                 .andExpect(status().isOk())
