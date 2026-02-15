@@ -24,7 +24,6 @@ public final class RecurringExpenseExtensions {
                 recurringExpense.getRecurrenceInterval().name(),
                 recurringExpense.getIsManual(),
                 bankAccountSummary,
-                recurringExpense.getLastUsedDate(),
                 recurringExpense.getCreatedAt(),
                 recurringExpense.getUpdatedAt()
         );
@@ -35,8 +34,7 @@ public final class RecurringExpenseExtensions {
             BankAccount bankAccount,
             Integer dueMonth,
             Integer dueYear,
-            String dueDisplay,
-            Boolean isDue) {
+            String dueDisplay) {
         BankAccountSummary bankAccountSummary = bankAccount != null
                 ? new BankAccountSummary(bankAccount.getId(), bankAccount.getName(), bankAccount.getCurrentBalance())
                 : null;
@@ -48,11 +46,9 @@ public final class RecurringExpenseExtensions {
                 recurringExpense.getRecurrenceInterval().name(),
                 recurringExpense.getIsManual(),
                 bankAccountSummary,
-                recurringExpense.getLastUsedDate(),
                 dueMonth,
                 dueYear,
                 dueDisplay,
-                isDue,
                 recurringExpense.getCreatedAt()
         );
     }

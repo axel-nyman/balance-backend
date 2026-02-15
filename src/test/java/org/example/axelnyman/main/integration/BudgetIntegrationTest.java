@@ -4830,11 +4830,9 @@ public class BudgetIntegrationTest {
                 mockMvc.perform(put("/api/budgets/" + budgetId + "/lock"))
                                 .andExpect(status().isOk());
 
-                // Then - Verify recurring expense's lastUsedDate and lastUsedBudgetId are
-                // updated
+                // Then - Verify recurring expense's lastUsedBudgetId is updated
                 org.example.axelnyman.main.domain.model.RecurringExpense updatedExpense = recurringExpenseRepository
                                 .findById(recurringExpense.getId()).orElseThrow();
-                assertThat(updatedExpense.getLastUsedDate()).isNotNull();
                 assertThat(updatedExpense.getLastUsedBudgetId()).isEqualTo(UUID.fromString(budgetId));
         }
 
@@ -4914,9 +4912,7 @@ public class BudgetIntegrationTest {
                 org.example.axelnyman.main.domain.model.RecurringExpense updatedSpotify = recurringExpenseRepository
                                 .findById(spotify.getId()).orElseThrow();
 
-                assertThat(updatedNetflix.getLastUsedDate()).isNotNull();
                 assertThat(updatedNetflix.getLastUsedBudgetId()).isEqualTo(UUID.fromString(budgetId));
-                assertThat(updatedSpotify.getLastUsedDate()).isNotNull();
                 assertThat(updatedSpotify.getLastUsedBudgetId()).isEqualTo(UUID.fromString(budgetId));
         }
 
@@ -6574,11 +6570,6 @@ public class BudgetIntegrationTest {
 
                 String templateId = objectMapper.readTree(templateResponse).get("id").asText();
 
-                // Verify initial state (lastUsedDate should be null)
-                mockMvc.perform(get("/api/recurring-expenses/" + templateId))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.lastUsedDate").doesNotExist());
-
                 // Create budget using template
                 org.example.axelnyman.main.domain.model.BankAccount account = createBankAccountEntity("RecurringTest1",
                                 "Test", new BigDecimal("5000.00"));
@@ -6618,19 +6609,14 @@ public class BudgetIntegrationTest {
                 mockMvc.perform(put("/api/budgets/" + budgetId + "/lock"))
                                 .andExpect(status().isOk());
 
-                // Verify template has lastUsedDate set
-                mockMvc.perform(get("/api/recurring-expenses/" + templateId))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.lastUsedDate").exists());
-
                 // When - Unlock budget
                 mockMvc.perform(put("/api/budgets/" + budgetId + "/unlock"))
                                 .andExpect(status().isOk());
 
-                // Then - Verify lastUsedDate is null again
-                mockMvc.perform(get("/api/recurring-expenses/" + templateId))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.lastUsedDate").doesNotExist());
+                // Then - Verify lastUsedBudgetId is null again (expense restored to unused state)
+                org.example.axelnyman.main.domain.model.RecurringExpense restoredExpense = recurringExpenseRepository
+                                .findById(UUID.fromString(templateId)).orElseThrow();
+                assertThat(restoredExpense.getLastUsedBudgetId()).isNull();
         }
 
         @Test
@@ -6667,12 +6653,6 @@ public class BudgetIntegrationTest {
                 mockMvc.perform(put("/api/budgets/" + janBudgetId + "/lock"))
                                 .andExpect(status().isOk());
 
-                // Get January's lockedAt timestamp
-                String janBudgetDetails = mockMvc.perform(get("/api/budgets/" + janBudgetId))
-                                .andExpect(status().isOk())
-                                .andReturn().getResponse().getContentAsString();
-                @SuppressWarnings("unused")
-                String janLockedAt = objectMapper.readTree(janBudgetDetails).get("lockedAt").asText();
 
                 // Create and lock February budget using same template
                 Map<String, Object> febRequest = createBudgetRequest(2, 2026);
@@ -6688,12 +6668,6 @@ public class BudgetIntegrationTest {
                 mockMvc.perform(put("/api/budgets/" + febBudgetId + "/lock"))
                                 .andExpect(status().isOk());
 
-                // Get February's lockedAt timestamp
-                String febBudgetDetails = mockMvc.perform(get("/api/budgets/" + febBudgetId))
-                                .andExpect(status().isOk())
-                                .andReturn().getResponse().getContentAsString();
-                String febLockedAt = objectMapper.readTree(febBudgetDetails).get("lockedAt").asText();
-
                 // Create and lock March budget using same template
                 Map<String, Object> marRequest = createBudgetRequest(3, 2026);
                 String marResponse = mockMvc.perform(post("/api/budgets")
@@ -6708,23 +6682,19 @@ public class BudgetIntegrationTest {
                 mockMvc.perform(put("/api/budgets/" + marBudgetId + "/lock"))
                                 .andExpect(status().isOk());
 
-                // Verify template has March's lockedAt
-                mockMvc.perform(get("/api/recurring-expenses/" + templateId))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.lastUsedDate").exists());
+                // Verify template has March's budgetId
+                org.example.axelnyman.main.domain.model.RecurringExpense afterMarchLock = recurringExpenseRepository
+                                .findById(UUID.fromString(templateId)).orElseThrow();
+                assertThat(afterMarchLock.getLastUsedBudgetId()).isEqualTo(UUID.fromString(marBudgetId));
 
                 // When - Unlock March (most recent)
                 mockMvc.perform(put("/api/budgets/" + marBudgetId + "/unlock"))
                                 .andExpect(status().isOk());
 
-                // Then - Verify lastUsedDate restored to February's lockedAt
-                String templateDetails = mockMvc.perform(get("/api/recurring-expenses/" + templateId))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.lastUsedDate").exists())
-                                .andReturn().getResponse().getContentAsString();
-
-                String restoredLastUsedDate = objectMapper.readTree(templateDetails).get("lastUsedDate").asText();
-                assertThat(restoredLastUsedDate).isEqualTo(febLockedAt);
+                // Then - Verify lastUsedBudgetId restored to February's budget
+                org.example.axelnyman.main.domain.model.RecurringExpense restoredExpense = recurringExpenseRepository
+                                .findById(UUID.fromString(templateId)).orElseThrow();
+                assertThat(restoredExpense.getLastUsedBudgetId()).isEqualTo(UUID.fromString(febBudgetId));
         }
 
         @Test

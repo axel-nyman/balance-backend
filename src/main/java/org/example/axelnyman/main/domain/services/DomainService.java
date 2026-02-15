@@ -320,7 +320,7 @@ public class DomainService implements IDomainService {
             }
         }
 
-        // Update fields (DO NOT update lastUsedDate - that's only updated when used in a budget)
+        // Update fields
         expense.setName(request.name());
         expense.setAmount(request.amount());
         expense.setRecurrenceInterval(interval);
@@ -342,7 +342,6 @@ public class DomainService implements IDomainService {
         List<RecurringExpenseListItemResponse> expenseResponses = expenses.stream()
                 .map(expense -> {
                     DueDate dueDate = calculateNextDueDate(expense);
-                    Boolean isDue = calculateIsDue(expense, dueDate);
                     String dueDisplay = formatDueDisplay(dueDate);
                     BankAccount bankAccount = resolveBankAccount(expense.getBankAccountId());
 
@@ -350,7 +349,7 @@ public class DomainService implements IDomainService {
                             expense, bankAccount,
                             dueDate != null ? dueDate.month() : null,
                             dueDate != null ? dueDate.year() : null,
-                            dueDisplay, isDue);
+                            dueDisplay);
                 })
                 .sorted(Comparator.comparing(RecurringExpenseListItemResponse::name))
                 .toList();
@@ -399,22 +398,6 @@ public class DomainService implements IDomainService {
         int dueYear = totalMonths / 12;
 
         return new DueDate(dueMonth, dueYear);
-    }
-
-    private Boolean calculateIsDue(RecurringExpense expense, DueDate dueDate) {
-        if (expense.getLastUsedMonth() == null) {
-            return true;
-        }
-        if (dueDate == null) {
-            return false;
-        }
-
-        LocalDate now = LocalDate.now();
-        int currentMonth = now.getMonthValue();
-        int currentYear = now.getYear();
-
-        return (dueDate.year() < currentYear) ||
-               (dueDate.year() == currentYear && dueDate.month() <= currentMonth);
     }
 
     private String formatDueDisplay(DueDate dueDate) {
@@ -867,7 +850,6 @@ public class DomainService implements IDomainService {
                     .orElseThrow(() -> new IllegalStateException(
                             "Recurring expense not found with id: " + recurringExpenseId));
 
-            recurringExpense.setLastUsedDate(lockedAt);
             recurringExpense.setLastUsedBudgetId(budgetId);
             recurringExpense.setLastUsedMonth(budgetMonth);
             recurringExpense.setLastUsedYear(budgetYear);
@@ -1015,12 +997,10 @@ public class DomainService implements IDomainService {
 
                 if (!previousBudgets.isEmpty()) {
                     Budget previousBudget = previousBudgets.get(0);
-                    recurringExpense.setLastUsedDate(previousBudget.getLockedAt());
                     recurringExpense.setLastUsedBudgetId(previousBudget.getId());
                     recurringExpense.setLastUsedMonth(previousBudget.getMonth());
                     recurringExpense.setLastUsedYear(previousBudget.getYear());
                 } else {
-                    recurringExpense.setLastUsedDate(null);
                     recurringExpense.setLastUsedBudgetId(null);
                     recurringExpense.setLastUsedMonth(null);
                     recurringExpense.setLastUsedYear(null);

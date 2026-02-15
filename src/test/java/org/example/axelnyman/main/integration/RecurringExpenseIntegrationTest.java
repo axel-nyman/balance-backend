@@ -98,7 +98,6 @@ public class RecurringExpenseIntegrationTest {
                                 .andExpect(jsonPath("$.amount", is(15.99)))
                                 .andExpect(jsonPath("$.recurrenceInterval", is("MONTHLY")))
                                 .andExpect(jsonPath("$.isManual", is(false)))
-                                .andExpect(jsonPath("$.lastUsedDate").value(nullValue()))
                                 .andExpect(jsonPath("$.createdAt").exists());
         }
 
@@ -309,27 +308,6 @@ public class RecurringExpenseIntegrationTest {
                                 .andExpect(jsonPath("$.name", is("Deleted Expense")));
         }
 
-        @Test
-        void shouldSetLastUsedDateToNullOnCreation() throws Exception {
-                // Given
-                var request = new java.util.HashMap<String, Object>();
-                request.put("name", "New Template");
-                request.put("amount", new BigDecimal("75.00"));
-                request.put("recurrenceInterval", "MONTHLY");
-                request.put("isManual", false);
-
-                // When & Then
-                mockMvc.perform(post("/api/recurring-expenses")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request)))
-                                .andExpect(status().isCreated())
-                                .andExpect(jsonPath("$.lastUsedDate").value(nullValue()));
-
-                // Also verify in database
-                var savedExpense = recurringExpenseRepository.findAll().get(0);
-                assert savedExpense.getLastUsedDate() == null : "lastUsedDate should be null on creation";
-        }
-
         // ========== LIST RECURRING EXPENSES TESTS ==========
 
         @Test
@@ -360,11 +338,9 @@ public class RecurringExpenseIntegrationTest {
                                 .contentType(MediaType.APPLICATION_JSON))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.expenses", hasSize(1)))
-                                .andExpect(jsonPath("$.expenses[0].lastUsedDate").value(nullValue()))
                                 .andExpect(jsonPath("$.expenses[0].dueMonth").value(nullValue()))
                                 .andExpect(jsonPath("$.expenses[0].dueYear").value(nullValue()))
-                                .andExpect(jsonPath("$.expenses[0].dueDisplay").value(nullValue()))
-                                .andExpect(jsonPath("$.expenses[0].isDue", is(true)));
+                                .andExpect(jsonPath("$.expenses[0].dueDisplay").value(nullValue()));
         }
 
         @Test
@@ -388,8 +364,7 @@ public class RecurringExpenseIntegrationTest {
                                 .andExpect(jsonPath("$.expenses", hasSize(1)))
                                 .andExpect(jsonPath("$.expenses[0].dueMonth", is(expectedDue.getMonthValue())))
                                 .andExpect(jsonPath("$.expenses[0].dueYear", is(expectedDue.getYear())))
-                                .andExpect(jsonPath("$.expenses[0].dueDisplay").exists())
-                                .andExpect(jsonPath("$.expenses[0].isDue", is(true)));
+                                .andExpect(jsonPath("$.expenses[0].dueDisplay").exists());
         }
 
         @Test
@@ -412,8 +387,7 @@ public class RecurringExpenseIntegrationTest {
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.expenses", hasSize(1)))
                                 .andExpect(jsonPath("$.expenses[0].dueMonth", is(expectedDue.getMonthValue())))
-                                .andExpect(jsonPath("$.expenses[0].dueYear", is(expectedDue.getYear())))
-                                .andExpect(jsonPath("$.expenses[0].isDue", is(false)));
+                                .andExpect(jsonPath("$.expenses[0].dueYear", is(expectedDue.getYear())));
         }
 
         @Test
@@ -436,8 +410,7 @@ public class RecurringExpenseIntegrationTest {
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.expenses", hasSize(1)))
                                 .andExpect(jsonPath("$.expenses[0].dueMonth", is(expectedDue.getMonthValue())))
-                                .andExpect(jsonPath("$.expenses[0].dueYear", is(expectedDue.getYear())))
-                                .andExpect(jsonPath("$.expenses[0].isDue", is(true)));
+                                .andExpect(jsonPath("$.expenses[0].dueYear", is(expectedDue.getYear())));
         }
 
         @Test
@@ -460,8 +433,7 @@ public class RecurringExpenseIntegrationTest {
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.expenses", hasSize(1)))
                                 .andExpect(jsonPath("$.expenses[0].dueMonth", is(expectedDue.getMonthValue())))
-                                .andExpect(jsonPath("$.expenses[0].dueYear", is(expectedDue.getYear())))
-                                .andExpect(jsonPath("$.expenses[0].isDue", is(false)));
+                                .andExpect(jsonPath("$.expenses[0].dueYear", is(expectedDue.getYear())));
         }
 
         @Test
@@ -513,42 +485,6 @@ public class RecurringExpenseIntegrationTest {
                                 .andExpect(jsonPath("$.expenses[1].name", is("Banana")))
                                 .andExpect(jsonPath("$.expenses[2].name", is("Mango")))
                                 .andExpect(jsonPath("$.expenses[3].name", is("Zebra")));
-        }
-
-        @Test
-        void shouldMarkExpenseAsDueWhenNextDueDateIsPast() throws Exception {
-                // Given - create expense with lastUsedMonth 2 months ago and MONTHLY interval
-                java.util.UUID expenseId = createRecurringExpense("Overdue Expense", "100.00", "MONTHLY");
-
-                var expense = recurringExpenseRepository.findById(expenseId).orElseThrow();
-                java.time.LocalDate twoMonthsAgo = java.time.LocalDate.now().minusMonths(2);
-                expense.setLastUsedMonth(twoMonthsAgo.getMonthValue());
-                expense.setLastUsedYear(twoMonthsAgo.getYear());
-                recurringExpenseRepository.save(expense);
-
-                // When & Then - should be marked as due (due month is 1 month ago)
-                mockMvc.perform(get("/api/recurring-expenses")
-                                .contentType(MediaType.APPLICATION_JSON))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.expenses[0].isDue", is(true)));
-        }
-
-        @Test
-        void shouldMarkExpenseAsNotDueWhenNextDueDateIsFuture() throws Exception {
-                // Given - create expense with lastUsedMonth set to current month (MONTHLY interval)
-                java.util.UUID expenseId = createRecurringExpense("Recent Expense", "100.00", "MONTHLY");
-
-                var expense = recurringExpenseRepository.findById(expenseId).orElseThrow();
-                java.time.LocalDate now = java.time.LocalDate.now();
-                expense.setLastUsedMonth(now.getMonthValue());
-                expense.setLastUsedYear(now.getYear());
-                recurringExpenseRepository.save(expense);
-
-                // When & Then - due next month, so not due yet
-                mockMvc.perform(get("/api/recurring-expenses")
-                                .contentType(MediaType.APPLICATION_JSON))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.expenses[0].isDue", is(false)));
         }
 
         // ========== UPDATE RECURRING EXPENSE TESTS ==========
@@ -658,36 +594,6 @@ public class RecurringExpenseIntegrationTest {
                                 .content(objectMapper.writeValueAsString(updateRequest)))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.isManual", is(true)));
-        }
-
-        @Test
-        void shouldNotModifyLastUsedDateDuringUpdate() throws Exception {
-                // Given - create expense and set lastUsedDate
-                java.util.UUID expenseId = createRecurringExpense("Test Expense", "100.00", "MONTHLY");
-
-                var expense = recurringExpenseRepository.findById(expenseId).orElseThrow();
-                // Truncate to microseconds to match PostgreSQL timestamp precision
-                java.time.LocalDateTime originalLastUsedDate = java.time.LocalDateTime.now().minusDays(10)
-                                .truncatedTo(java.time.temporal.ChronoUnit.MICROS);
-                expense.setLastUsedDate(originalLastUsedDate);
-                recurringExpenseRepository.save(expense);
-
-                // When - update the expense
-                var updateRequest = new java.util.HashMap<String, Object>();
-                updateRequest.put("name", "Updated Test Expense");
-                updateRequest.put("amount", new BigDecimal("150.00"));
-                updateRequest.put("recurrenceInterval", "YEARLY");
-                updateRequest.put("isManual", true);
-
-                mockMvc.perform(put("/api/recurring-expenses/" + expenseId)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(updateRequest)))
-                                .andExpect(status().isOk());
-
-                // Then - verify lastUsedDate is unchanged
-                var updatedExpense = recurringExpenseRepository.findById(expenseId).orElseThrow();
-                assert updatedExpense.getLastUsedDate().equals(originalLastUsedDate)
-                        : "lastUsedDate should not be modified during update";
         }
 
         @Test

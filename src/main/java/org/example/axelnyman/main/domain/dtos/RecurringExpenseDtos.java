@@ -53,7 +53,6 @@ public class RecurringExpenseDtos {
             String recurrenceInterval,
             Boolean isManual,
             BankAccountSummary bankAccount,
-            LocalDateTime lastUsedDate,
             LocalDateTime createdAt,
             LocalDateTime updatedAt
     ) {}
@@ -65,11 +64,9 @@ public class RecurringExpenseDtos {
             String recurrenceInterval,
             Boolean isManual,
             BankAccountSummary bankAccount,
-            LocalDateTime lastUsedDate,
             Integer dueMonth,
             Integer dueYear,
             String dueDisplay,
-            Boolean isDue,
             LocalDateTime createdAt
     ) {}
 

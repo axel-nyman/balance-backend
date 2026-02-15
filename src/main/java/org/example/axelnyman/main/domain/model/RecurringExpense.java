@@ -38,9 +38,6 @@ public final class RecurringExpense {
     @JoinColumn(name = "bank_account_id", insertable = false, updatable = false)
     private BankAccount bankAccount;
 
-    @Column(name = "last_used_date")
-    private LocalDateTime lastUsedDate;
-
     @Column(name = "last_used_budget_id")
     private UUID lastUsedBudgetId;
 
@@ -72,7 +69,6 @@ public final class RecurringExpense {
         this.recurrenceInterval = recurrenceInterval;
         this.isManual = isManual != null ? isManual : false;
         this.bankAccountId = bankAccountId;
-        this.lastUsedDate = null; // Initially null, set when used in budget
     }
 
     // Getters and Setters
@@ -126,14 +122,6 @@ public final class RecurringExpense {
 
     public BankAccount getBankAccount() {
         return bankAccount;
-    }
-
-    public LocalDateTime getLastUsedDate() {
-        return lastUsedDate;
-    }
-
-    public void setLastUsedDate(LocalDateTime lastUsedDate) {
-        this.lastUsedDate = lastUsedDate;
     }
 
     public UUID getLastUsedBudgetId() {
