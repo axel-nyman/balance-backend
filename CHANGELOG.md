@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.4.0](https://github.com/axel-nyman/balance-backend/compare/v1.3.0...v1.4.0) (2026-02-15)
+
+
+### Features
+
+* replace timestamp-based due dates with month/year calculation ([dd04c10](https://github.com/axel-nyman/balance-backend/commit/dd04c10b8a14b75c57f628527ca1d235be3b1575))
+
+
+### Documentation
+
+* **claude:** add month-based due date plan, research, and cleanup notes ([f935164](https://github.com/axel-nyman/balance-backend/commit/f935164060145e4e652952061e51ecbb3e9a55bd))
+
 ## [1.3.0](https://github.com/axel-nyman/balance-backend/compare/v1.2.1...v1.3.0) (2026-02-09)
 
 
