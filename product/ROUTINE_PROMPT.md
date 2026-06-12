@@ -76,10 +76,39 @@ before implementing.
   Bookkeeping-only changes are `docs:`.
 
 ### 6. Verify — all green before any PR
-- Backend: `./mvnw test` (needs Docker for Testcontainers).
-- Frontend: `npm run lint && npx tsc --noEmit && npm test -- --run && npm run build`.
-- If the environment genuinely cannot run something, state exactly what was
-  not run and why in the PR body. Never imply verification that didn't happen.
+
+**Environment bootstrap** (verified to work in this remote environment):
+
+- The Docker daemon is **not running by default**. Start it and wait for it:
+  `sudo service docker start`, then poll `docker info` until it answers.
+  Backend integration tests (Testcontainers) need it.
+- Pre-pull the test database image once before the suite:
+  `docker pull postgres:15-alpine`. Skipping this lets the parallel test
+  classes race the first pull on a cold daemon and fail spuriously
+  (`ContainerFetch: Can't get Docker image`) — that is an environment flake,
+  not a code failure.
+- The JDK here is 21 while the project targets Java 17 — that combination
+  builds and tests fine; do not "fix" it.
+
+**Run:**
+
+- Backend: `./mvnw test` — roughly 10–12 min on a cold container (dependency
+  downloads), a few minutes warm. Green means `BUILD SUCCESS` with
+  `Failures: 0, Errors: 0` in the summary — read it, don't assume.
+- Frontend: `npm ci`, then
+  `npm run lint && npx tsc --noEmit && npm test -- --run && npm run build`
+  (all four together take ~1 min; lint warnings are OK, errors are not).
+
+**Exit-code discipline:** piping a test command through `tail`/`grep` makes
+the pipe's exit code the *filter's*, not Maven's — a failed build can look
+like exit 0. Use `set -o pipefail` when filtering, and always confirm the
+printed summary line. If a failure looks environmental (container startup,
+image pull), retry the failed classes once
+(`./mvnw test -Dtest='ClassA,ClassB'`) before drawing conclusions, and report
+any flakiness honestly in the PR.
+
+If the environment genuinely cannot run something, state exactly what was
+not run and why in the PR body. Never imply verification that didn't happen.
 
 ### 7. Bookkeeping (in the same backend branch/PR)
 - Move the spec from `product/backlog/` to `product/done/`, appending a
