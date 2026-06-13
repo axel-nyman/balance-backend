@@ -4,7 +4,11 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 ## Project Overview
 
-Spring Boot 3.4.10 REST API using Java 17, JWT authentication, PostgreSQL with JPA/Hibernate, and clean 3-layer service architecture. Maven-based project.
+Backend of **Balance**, a self-hosted budgeting app for a couple managing shared monthly finances. Spring Boot 3.4.x REST API using Java 17, PostgreSQL with JPA/Hibernate, Flyway migrations, and clean 3-layer service architecture. Maven-based project.
+
+**There is no authentication — by design.** Balance runs on a trusted home network for two users. Do not add auth, tokens, or user entities (see Non-Goals in `product/STATE.md`).
+
+**Product context lives in `product/`:** `STATE.md` (what the app contains today — read it first), `backlog/` (prioritized feature specs), `ROUTINE_PROMPT.md` (operating manual for the scheduled daily agent).
 
 ## Development Philosophy
 
@@ -29,8 +33,8 @@ docker-compose -f docker-compose.dev.yml up -d
 
 # Run tests
 ./mvnw test
-./mvnw test -Dtest=AuthIntegrationTest
-./mvnw test -Dtest=AuthIntegrationTest#shouldRegisterUser
+./mvnw test -Dtest=BudgetIntegrationTest
+./mvnw test -Dtest=BankAccountIntegrationTest#shouldCreateBankAccountWhenValidDataProvided
 
 # Coverage report
 ./mvnw clean test jacoco:report  # View at target/site/jacoco/index.html
@@ -42,7 +46,7 @@ docker-compose -f docker-compose.dev.yml up -d
 
 ## User Story Workflow
 
-Stories organized in `todo/backlog/` by sprint. Follow TDD approach:
+**Ongoing product work lives in `product/backlog/`** (see `product/README.md` for the workflow). `todo/` is the historical initial build-out: sprints 0–4 are complete in `todo/done/`, and `todo/backlog/sprint-5/` holds remaining E2E-test stories. The TDD lifecycle below applies to specs from either place:
 
 **Story Lifecycle:**
 1. Select story from backlog (follow sprint order)
@@ -82,37 +86,28 @@ Stories organized in `todo/backlog/` by sprint. Follow TDD approach:
    - Works with JPA entities only, returns `Entity` or `Optional<Entity>`
    - No business logic
 
-2. **Domain Layer (DomainService/AuthService)**: Business logic and DTO transformation
-   - Interfaces: `IDomainService`, `IAuthService` in `domain/abstracts/`
+2. **Domain Layer (DomainService)**: Business logic and DTO transformation
+   - Interface: `IDomainService` in `domain/abstracts/`
    - Implementations in `domain/services/`
-   - Returns DTOs (`UserResponse`, `AuthResponse`)
+   - Returns DTOs (e.g. `BankAccountResponse`, `BudgetResponse`)
    - Contains business rules and validation
 
 3. **API Layer (Controllers)**: HTTP handling only
    - Located in `api/endpoints/`
-   - Delegate to domain/auth services
+   - Delegate to the domain service
    - Handle HTTP status codes and responses
 
 ### Key Design Patterns
 
-- **Service Separation**: DataService → DomainService/AuthService → Controller. Never skip layers.
-- **Entity ↔ DTO Mapping**: All mapping in extension classes (`domain/extensions/`). Use `UserExtensions.toResponse(user)`, `UserExtensions.toEntity(request)`.
+- **Service Separation**: DataService → DomainService → Controller. Never skip layers.
+- **Entity ↔ DTO Mapping**: All mapping in extension classes (`domain/extensions/`). Use `BankAccountExtensions.toResponse(account)`, `BankAccountExtensions.toEntity(request)`.
 - **Error Handling**: Specific domain exceptions caught by `GlobalExceptionHandler`.
-- **Soft Deletes**: `deletedAt` field. Never hard-delete users.
+- **Soft Deletes**: `deletedAt` field. Never hard-delete records.
 - **JPA Auditing**: `@EntityListeners(AuditingEntityListener.class)` for timestamps.
 
-### Security Architecture
+### Security Model
 
-**JWT Flow:**
-1. User registers/logs in via `AuthController` → `AuthService`
-2. `AuthService` generates JWT via `JwtTokenProvider`
-3. Client sends `Authorization: Bearer <token>`
-4. `JwtAuthenticationFilter` validates token
-5. Protected endpoints check authentication via Spring Security
-
-**Components:** `JwtTokenProvider`, `JwtAuthenticationFilter`, `SecurityConfig`, `UserPrincipal`, `@CurrentUser` annotation
-
-**Public Endpoints:** `/api/auth/**` only. All other `/api/**` require authentication.
+**There is no authentication or user system — by design.** All `/api/**` endpoints are open; Spring Security is not on the classpath. Balance is deployed LAN-only for two trusted users. Do not introduce auth, JWT, or user entities — it is an explicit non-goal. (Earlier versions of this doc described a JWT flow inherited from the project template; that code never existed here.)
 
 ## Decision-Making Framework
 
@@ -146,11 +141,9 @@ src/main/java/org/example/axelnyman/main/
 │   ├── services/               # Business logic
 │   └── utils/                  # Pure utility functions (calculations, algorithms)
 ├── infrastructure/
-│   ├── config/                 # Spring configuration
-│   ├── data/
-│   │   ├── context/            # JPA repositories
-│   │   └── services/           # Data access layer (DataService)
-│   └── security/               # JWT and Spring Security
+│   └── data/
+│       ├── context/            # JPA repositories
+│       └── services/           # Data access layer (DataService)
 └── shared/exceptions/          # Custom exceptions and global handler
 ```
 
@@ -210,7 +203,6 @@ PostgreSQL stores timestamps with microsecond precision while Java LocalDateTime
 
 **Environment Variables:**
 - `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`
-- `JWT_SECRET` (32+ characters), `JWT_EXPIRATION` (default: 86400000ms)
 
 ## Database Migrations
 
@@ -279,7 +271,7 @@ docker-compose -f docker-compose.dev.yml up -d
 4. Follows project patterns
 5. API documentation updated
 6. Error scenarios handled
-7. Story moved to `todo/done/`
+7. Spec moved to its done directory (`product/done/` for product backlog items, `todo/done/` for legacy stories) with completion notes
 
 ## Anti-Patterns to Avoid
 
@@ -310,20 +302,20 @@ docker-compose -f docker-compose.dev.yml up -d
 3. DTOs in `domain/dtos/` with validation
 4. Extension class in `domain/extensions/` for mapping
 5. Methods in `IDataService` interface and `DataService` implementation
-6. Business methods in `IDomainService`/`IAuthService` and implementations
+6. Business methods in `IDomainService` and implementation
 7. Controller in `api/endpoints/`
 8. Integration tests
 
 **Fetching with Error Handling:**
 ```java
-User user = dataService.getUserById(id)
-    .orElseThrow(() -> new UserNotFoundException("User not found with id: " + id));
+BankAccount account = dataService.getBankAccountById(id)
+    .orElseThrow(() -> new BankAccountNotFoundException("Bank account not found with id: " + id));
 ```
 
 **Mapping Collections:**
 ```java
-return dataService.getAllUsers().stream()
-    .map(UserExtensions::toResponse)
+return dataService.getAllBankAccounts().stream()
+    .map(BankAccountExtensions::toResponse)
     .toList();
 ```
 
@@ -333,7 +325,7 @@ return ResponseEntity.status(HttpStatus.CREATED)
     .body(domainService.createBankAccount(request));
 
 // For Optional results
-return domainService.getUser(id)
+return domainService.getBudget(id)
     .map(ResponseEntity::ok)
     .orElse(ResponseEntity.notFound().build());
 ```
