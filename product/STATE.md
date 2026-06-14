@@ -6,7 +6,7 @@
 > `CHANGELOG.md` (generated — never hand-edit), and `.claude/thoughts/` in
 > both repos for engineering research and plans.
 
-**Last updated:** 2026-06-12 (initial version, written during product-workflow setup)
+**Last updated:** 2026-06-14 (backend README rewrite, item 005)
 
 ## What Balance is
 
@@ -125,10 +125,10 @@ Money is `BigDecimal` / `NUMERIC(19,2)` everywhere. Flyway migrations V1–V4
 
 ## Known quirks & debt
 
-- `balance-backend/README.md` is still the original Spring Boot *template*
-  README — it documents JWT/auth/user endpoints that **do not exist** (there
-  is no auth anywhere in the code, by design). Backlog item 005. The backend
-  `CLAUDE.md` had the same fiction; it was cleaned up 2026-06-12.
+- `balance-backend/README.md` now describes Balance accurately (item 005, done
+  2026-06-14); the earlier template fiction (JWT/auth/user endpoints that do
+  not exist) is gone. The backend `CLAUDE.md` was cleaned up the same way on
+  2026-06-12.
 - Backend package `org.example.axelnyman.main` and Maven artifact
   `spring-boot-rest-api-template` are template leftovers. Renaming is invasive
   and low-value; leave unless explicitly decided.
@@ -144,4 +144,5 @@ Money is `BigDecimal` / `NUMERIC(19,2)` everywhere. Flyway migrations V1–V4
 
 | Date | Item | Repos |
 |---|---|---|
+| 2026-06-14 | Rewrite backend README to describe Balance (item 005) | backend |
 | 2026-06-12 | Product workflow set up (`product/` system, CLAUDE.md doc fixes) | backend, frontend |

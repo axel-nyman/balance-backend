@@ -1,272 +1,100 @@
-# Spring Boot REST API Template
+# Balance — Backend
 
-A minimal Spring Boot REST API template with JWT authentication, clean architecture, and comprehensive testing setup. Perfect for quickly bootstrapping new backend projects.
+Backend for **Balance**, a self-hosted budgeting app that one couple uses to
+manage their shared monthly finances on their home network. It is a focused
+tool for a single household's monthly money routine — plan a budget, lock it
+to compute the transfers and todo list, execute through the month, and
+correct as reality drifts — **not** a general-purpose finance platform.
 
-## 🚀 What's Included
+For the full picture of what the app does today (domain model, the monthly
+routine, API surface, conventions, and known quirks), read
+[`product/STATE.md`](product/STATE.md) — it is the living source of truth.
 
-This template provides a foundation for building modern REST APIs:
+> **No authentication — by design.** Balance is deployed LAN-only for two
+> trusted users. There are no user accounts and Spring Security is not on the
+> classpath; every `/api/**` endpoint is open. Do not add an access-control
+> layer (see the non-goals in `product/STATE.md`).
 
-- **JWT Authentication** - Complete user registration/login flow with secure password hashing
-- **Clean Architecture** - 3-layer service architecture with clear separation of concerns
-- **Database Ready** - PostgreSQL with JPA/Hibernate, soft deletes, and auditing
-- **Testing Setup** - Integration tests with Testcontainers
-- **API Documentation** - Auto-generated with OpenAPI/Swagger UI
-- **Validation** - Bean Validation with global exception handling
-- **Security** - Spring Security, BCrypt password encoding, CORS configuration
+## Tech stack
 
-## 📋 Prerequisites
+- **Spring Boot 3.4.x** on **Java 17**, Maven (via the Maven Wrapper)
+- **PostgreSQL 15** with JPA/Hibernate
+- **Flyway** for versioned schema migrations
+  (`src/main/resources/db/migration/`)
+- Strict **3-layer architecture** (DataService → DomainService → Controller)
+- **Testcontainers** integration tests
+- **OpenAPI / Swagger UI** for API documentation
 
-- **Java 17+**
-- **Docker** (for running PostgreSQL database)
-- **Maven** (included via Maven Wrapper)
+## Local development
 
-## 🎯 Quick Start
-
-### 1. Clone and Customize
-
-```bash
-# Clone this template
-git clone <your-repo-url>
-cd spring-template-api
-
-# Update project metadata in pom.xml:
-# - groupId
-# - artifactId
-# - name
-# - description
-
-# Update package names from org.example.axelnyman.main to your own
-```
-
-### 2. Start the Database
+### 1. Start the database
 
 ```bash
-# Start PostgreSQL with Docker Compose
 docker-compose -f docker-compose.dev.yml up -d
 ```
 
-### 3. Run the Application
+### 2. Run the application
 
 ```bash
-# Run with local profile
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
-The API will be available at `http://localhost:8080/api`
+- API: `http://localhost:8080/api`
+- Swagger UI: `http://localhost:8080/swagger-ui.html` — explore and try every
+  endpoint
+- Adminer (DB UI): `http://localhost:8081`
 
-### 4. Explore the API
-
-Open Swagger UI at `http://localhost:8080/swagger-ui.html` to:
-- View all available endpoints
-- Test authentication flow
-- Explore example endpoints
-
-## 📚 Architecture Overview
-
-### 3-Layer Service Architecture
-
-```
-┌─────────────────────────────────────┐
-│         API Layer                    │
-│   (Controllers - HTTP only)          │
-└──────────────┬──────────────────────┘
-               │
-┌──────────────▼──────────────────────┐
-│         Domain Layer                 │
-│   ┌────────────────────────────┐    │
-│   │  AuthService               │    │
-│   │  (Authentication logic)    │    │
-│   └────────────┬───────────────┘    │
-│                │                     │
-│   ┌────────────▼───────────────┐    │
-│   │  DomainService             │    │
-│   │  (Business logic + DTOs)   │    │
-│   └────────────┬───────────────┘    │
-└────────────────┼───────────────────┘
-                 │
-┌────────────────▼───────────────────┐
-│    Infrastructure Layer             │
-│   ┌────────────────────────────┐   │
-│   │  DataService               │   │
-│   │  (Data access + entities)  │   │
-│   └────────────┬───────────────┘   │
-│                │                    │
-│   ┌────────────▼───────────────┐   │
-│   │  Repositories (JPA)        │   │
-│   └────────────────────────────┘   │
-└────────────────────────────────────┘
-```
-
-**Key Principles:**
-- **DataService**: Pure data access, returns entities
-- **DomainService**: Business logic, returns DTOs
-- **AuthService**: Authentication-specific logic
-- **Controllers**: HTTP concerns only, delegate to services
-
-### Project Structure
-
-```
-src/main/java/
-├── domain/
-│   ├── model/           # JPA entities
-│   ├── dtos/            # Request/Response DTOs
-│   ├── services/        # Service implementations
-│   ├── abstracts/       # Service interfaces
-│   └── extensions/      # Entity ↔ DTO mappers
-├── api/
-│   └── endpoints/       # REST controllers
-├── infrastructure/
-│   ├── data/
-│   │   ├── context/     # JPA repositories
-│   │   └── services/    # Data service impl
-│   ├── security/        # JWT, Spring Security config
-│   └── config/          # Application configuration
-└── shared/
-    └── exceptions/      # Global exception handling
-```
-
-## 🧪 Testing
-
-### Run All Tests
+Flyway applies the migrations automatically on startup. To reset the local
+database:
 
 ```bash
-./mvnw test
+docker-compose -f docker-compose.dev.yml down -v
+docker-compose -f docker-compose.dev.yml up -d
+./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
-### Test Categories
+### Environment variables
 
-- **AuthIntegrationTest** - Registration, login, JWT validation
-- **UserIntegrationTest** - User profile management
-- **JwtAuthenticationFilterIntegrationTest** - Security filter behavior
-- **JwtTokenProviderTest** - JWT token generation and validation
+`DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD` (the `local` profile
+provides sensible defaults for the docker-compose dev database).
 
-### Writing New Tests
+## Testing
 
-All integration tests use:
-- **Testcontainers** for PostgreSQL (automatic cleanup)
-- **MockMvc** for HTTP testing
-- **@BeforeEach** for database cleanup
-
-## 📖 API Documentation
-
-### Swagger UI
-
-Available at `http://localhost:8080/swagger-ui.html` when running locally.
-
-**Test the API:**
-1. Register a new user at `/api/auth/register`
-2. Copy the JWT token from the response
-3. Click "Authorize" button (🔒 icon)
-4. Enter: `Bearer <your-token>`
-5. Test protected endpoints
-
-### Available Endpoints
-
-#### Authentication
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - Login and get JWT token
-
-#### Users (Protected)
-- `GET /api/users/me` - Get current user profile
-
-## 🔐 Security
-
-### Password Security
-- Passwords hashed with BCrypt
-- Minimum 8 characters required (configurable in DTOs)
-
-### JWT Tokens
-- 24-hour expiration (configurable in `application.properties`)
-- Include in header: `Authorization: Bearer <token>`
-
-### Environment Variables
-
-Create `.env` file for local development:
+Integration tests run against a real PostgreSQL via Testcontainers, so a
+running Docker daemon is required.
 
 ```bash
-# Database
-POSTGRES_USER=user
-POSTGRES_PASSWORD=password
-POSTGRES_DB=mydatabase
-
-# JWT Secret (change in production!)
-JWT_SECRET=your-secret-key-here
+./mvnw test                                  # full suite
+./mvnw test -Dtest=BudgetIntegrationTest     # one class
+./mvnw clean test jacoco:report              # coverage at target/site/jacoco/index.html
 ```
 
-## 🎨 Customization Guide
+The project follows TDD: integration tests with `@SpringBootTest` +
+Testcontainers are the primary safety net, with focused unit tests for pure
+algorithms (e.g. `TransferCalculationUtilsTest`).
 
-### 1. Rename Package
+## API documentation
 
-Find and replace `org.example.axelnyman.main` with your package name across all files.
+Swagger UI at `http://localhost:8080/swagger-ui.html` lists every endpoint
+with request/response schemas and a try-it console. A summary of the API
+surface also lives in [`product/STATE.md`](product/STATE.md).
 
-### 2. Update pom.xml
+## Delivery pipeline
 
-```xml
-<groupId>com.yourcompany</groupId>
-<artifactId>your-project-name</artifactId>
-<version>0.0.1-SNAPSHOT</version>
-<name>Your Project Name</name>
-<description>Your project description</description>
-```
+Commits and PR titles follow **Conventional Commits**
+(`feat:` / `fix:` / `docs:` / `chore:` / `refactor:` / `test:`).
+[release-please](https://github.com/googleapis/release-please) reads them to
+maintain a release PR and `CHANGELOG.md` automatically — **never hand-edit
+`CHANGELOG.md`**. When the maintainer merges the release PR, GitHub Actions
+builds multi-arch (amd64 + arm64) Docker images, publishes them to Docker
+Hub (`axelnyman/balance-backend`), and the Raspberry Pi running production
+pulls them. Merging a feature PR alone does not deploy; the release-PR merge
+is the deploy gate.
 
-### 3. Add Your First Entity
+## Where to look next
 
-The User entity is included as an example. To add your own entities, follow this pattern:
-
-1. Create entity in `domain/model/` with JPA annotations
-2. Create repository in `infrastructure/data/context/`
-3. Create DTOs in `domain/dtos/`
-4. Create extensions in `domain/extensions/` for mapping
-5. Add methods to service interfaces (`IDataService`, `IDomainService`)
-6. Implement methods in service classes
-7. Create controller in `api/endpoints/`
-8. Write integration tests
-
-See the User implementation for a complete example of this pattern.
-
-## 📝 Development Notes
-
-### Key Design Decisions
-
-1. **No validation in services** - All validation done via Bean Validation in DTOs
-2. **Specific exceptions** - Use domain exceptions (`UserNotFoundException`) not generic `RuntimeException`
-3. **Extension classes** - All entity ↔ DTO mapping centralized in extension classes
-4. **Soft deletes** - Users have `deletedAt` field instead of hard deletes
-5. **JPA auditing** - Automatic `createdAt`/`updatedAt` timestamps
-
-### Common Patterns
-
-**Fetching with error handling:**
-```java
-User user = dataService.getUserById(id)
-    .orElseThrow(() -> new UserNotFoundException("User not found"));
-```
-
-**Mapping collections:**
-```java
-return dataService.getAllUsers()
-    .stream()
-    .map(UserExtensions::toResponse)
-    .toList();
-```
-
-**Controller responses:**
-```java
-return domainService.getUser(id)
-    .map(user -> ResponseEntity.ok(user))
-    .orElse(ResponseEntity.notFound().build());
-```
-
-## 🤝 Contributing
-
-This is a template project. Fork it and customize for your needs!
-
-## 📄 License
-
-MIT License - feel free to use for any purpose.
-
----
-
-**Happy Building! 🚀**
-
-For questions or issues, check the integration tests for working examples of all features.
+- [`product/`](product/) — the product workflow: `STATE.md` (what the app is
+  today), `backlog/` (prioritized specs), `done/` (history), and
+  `ROUTINE_PROMPT.md` (operating manual for the scheduled daily agent).
+- [`CLAUDE.md`](CLAUDE.md) — engineering conventions: the 3-layer
+  architecture, TDD practice, migration rules, and coding style.
