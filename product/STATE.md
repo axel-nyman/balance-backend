@@ -6,7 +6,7 @@
 > `CHANGELOG.md` (generated — never hand-edit), and `.claude/thoughts/` in
 > both repos for engineering research and plans.
 
-**Last updated:** 2026-06-14 (backend README rewrite, item 005)
+**Last updated:** 2026-06-15 (due-recurring hint on budget detail, item 010)
 
 ## What Balance is
 
@@ -106,7 +106,10 @@ Money is `BigDecimal` / `NUMERIC(19,2)` everywhere. Flyway migrations V1–V4
   with "add all due"; create requires balance = 0.
 - `/budgets/:id` — income/expenses/savings sections with add/edit/delete
   modals (UNLOCKED only); summary with balance bar; lock/unlock/delete
-  actions; link to the todo page when locked.
+  actions; link to the todo page when locked. On UNLOCKED budgets a
+  "due recurring expenses not added" hint above the expenses section lists
+  recurring templates due for the budget month or earlier that aren't linked
+  from any expense row, with one-click add (item 010).
 - `/budgets/:id/todo` — progress bar; TRANSFER/PAYMENT items with optimistic
   checkbox toggling.
 
@@ -144,5 +147,6 @@ Money is `BigDecimal` / `NUMERIC(19,2)` everywhere. Flyway migrations V1–V4
 
 | Date | Item | Repos |
 |---|---|---|
+| 2026-06-15 | Due-recurring hint on budget detail page (item 010) | frontend, backend (bookkeeping) |
 | 2026-06-14 | Rewrite backend README to describe Balance (item 005) | backend |
 | 2026-06-12 | Product workflow set up (`product/` system, CLAUDE.md doc fixes) | backend, frontend |
