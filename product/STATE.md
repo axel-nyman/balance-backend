@@ -6,7 +6,8 @@
 > `CHANGELOG.md` (generated — never hand-edit), and `.claude/thoughts/` in
 > both repos for engineering research and plans.
 
-**Last updated:** 2026-06-17 (scoped new-feature backlog from item 015)
+**Last updated:** 2026-06-17 (scoped new-feature backlog from item 015; revised
+per maintainer review — see Open backlog)
 
 ## What Balance is
 
@@ -20,8 +21,9 @@ real financial data — **data safety beats feature count**.
 get wrong. It is not a general-purpose finance platform.
 
 **Non-goals (firm):** no auth/user accounts, no bank integrations, no
-investments or debt tracking, no reports/charts, no data export, no dark mode,
-no i18n.
+investments or debt tracking, no data export, no dark mode, no i18n.
+(Data visualizations/charts are **not** a non-goal — clarified by the maintainer
+in the item 015 review; focused charts that aid the monthly routine are welcome.)
 
 ## The monthly routine it supports
 
@@ -92,7 +94,7 @@ Money is `BigDecimal` / `NUMERIC(19,2)` everywhere. Flyway migrations V1–V4
   `/{budgetId}/todo-list/items/{id}` PUT.
 - `/api/recurring-expenses` — POST, GET; `/{id}` GET, PUT, DELETE.
 - There is no `PUT /api/budgets/{id}` — month/year is not editable after
-  creation (backlog item 030).
+  creation (a possible future item; not yet specced).
 
 ## Frontend pages
 
@@ -148,17 +150,22 @@ Money is `BigDecimal` / `NUMERIC(19,2)` everywhere. Flyway migrations V1–V4
 ## Open backlog (as of 2026-06-17)
 
 Specs live directly in `product/` (filename `NNN-slug.md`, lowest number =
-highest priority). Item 015 scoped six raw feature ideas into these:
+highest priority). Item 015 scoped six raw feature ideas into these; priority
+order reflects the maintainer's item 015 review (unstable images first):
 
-- `020` wizard modal buttons clipped on iPhone (frontend, S)
+- `020` build/push `unstable` (on merge to main) **and per-PR** Docker images
+  for a test deployment (CI, both repos, M) — prioritised first so later
+  features can be test-deployed before merge
+- `030` wizard modal buttons clipped on iPhone (frontend, S)
 - `040` collapse not-due recurring expenses in the wizard (frontend, S)
 - `050` tighter wizard density / smaller desktop quick-add cards (frontend, M)
 - `060` near-real-time refresh to sync two open sessions (frontend, S)
 - `070a–070e` **savings goals** (split: backend foundation → goals pages →
   budget linking on lock → manual-balance reallocation → progress/predictions).
-  Sizeable new domain — `070a` is the gate; `070e` (visualizations) is flagged
-  against the no-reports/charts non-goal and needs maintainer confirmation.
-- `090` build/push `unstable` Docker images on merge to main (CI, both repos, M)
+  Sizeable new domain — `070a` is the gate. `070a` now includes an append-only
+  allocation-history ledger and an archive option that can release allocations
+  back to account balances; `070e` adds progress visualizations (charts are in
+  scope — see the non-goals note above).
 
 ## Recently completed
 

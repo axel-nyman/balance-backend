@@ -1,6 +1,6 @@
 # Give the wizard item modal's buttons room above the iPhone home indicator
 
-- **ID:** 020-wizard-modal-button-safe-area
+- **ID:** 030-wizard-modal-button-safe-area
 - **Scope:** frontend
 - **Size:** S (≤ half a day)
 

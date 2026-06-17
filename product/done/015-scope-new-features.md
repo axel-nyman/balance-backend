@@ -49,8 +49,9 @@ Split anything too large into several smaller features if needed.
 - **Date:** 2026-06-17
 - **Repo / PR:** balance-backend (docs-only) — branch
   `claude/youthful-hamilton-gh2fag`. No code changed; this item only scopes
-  specs. No frontend PR (nothing to build per "Out of scope: Don't implement
-  anything").
+  specs. A tiny companion frontend docs PR drops "reports/charts" from the
+  frontend `CLAUDE.md` Non-Goals list (per the maintainer review); no app code
+  is built (per "Out of scope: Don't implement anything").
 
 ### What was produced
 
@@ -61,19 +62,20 @@ independently-mergeable parts as the spec invited. New items, by priority:
 
 | New item | Idea | Scope | Size |
 |---|---|---|---|
-| `020-wizard-modal-button-safe-area` | 1 — clipped modal buttons on iPhone | frontend | S |
+| `020-unstable-prerelease-images` | 6 — `unstable` (on merge) + per-PR Docker images | full-stack (CI) | M |
+| `030-wizard-modal-button-safe-area` | 1 — clipped modal buttons on iPhone | frontend | S |
 | `040-wizard-hide-non-due-recurring` | 2 — collapse not-due recurring in wizard | frontend | S |
 | `050-wizard-density` | 3 — tighter wizard / smaller desktop quick-add cards | frontend | M |
 | `060-near-realtime-refresh` | 4 — keep two open sessions in sync | frontend | S |
-| `070a-savings-goals-backend-foundation` | 5 — entity + allocation ledger + CRUD | backend | M |
+| `070a-savings-goals-backend-foundation` | 5 — entity + allocation ledger + history + CRUD | backend | M |
 | `070b-savings-goals-pages` | 5 — sidebar page, detail, create/edit/assign | frontend | M |
 | `070c-savings-goals-budget-linking` | 5 — link budget savings, allocate on lock | full-stack | M |
 | `070d-savings-goals-balance-reallocation` | 5 — manual-balance-change reallocation | full-stack | M |
-| `070e-savings-goals-predictions` | 5 — progress, end-date & velocity projections | frontend | M |
-| `090-unstable-prerelease-images` | 6 — `unstable` Docker images on merge to main | full-stack (CI) | M |
+| `070e-savings-goals-predictions` | 5 — progress, end-date & velocity projections + chart | frontend | M |
 
-Numbering leaves gaps for insertion and **skips 030**, which STATE.md already
-references for a hypothetical "make month/year editable" item.
+Priority order reflects the **maintainer's item 015 review**: the unstable/
+per-PR images (`020`) were moved to the front so later features can be test-
+deployed before merge. The wizard button fix moved `020 → 030`.
 
 ### Interpretation decisions & flags
 
@@ -86,15 +88,35 @@ references for a hypothetical "make month/year editable" item.
   interact are the lock flow (`070c`) and manual balance changes (`070d`), which
   are isolated into their own specs to keep the safety-critical lock/unlock
   invariant front-of-mind.
-- **Idea 5 vs non-goals (FLAG):** `070e` (visualizations/predictions) brushes
-  against the firm "no reports/charts" non-goal. The spec is scoped to progress
-  bars + textual projections only and **explicitly asks the maintainer to
-  confirm** the desired visual fidelity before it's built. The maintainer should
-  also sanity-check that savings goals as a whole are wanted before `070a`
-  starts, since it's a sizeable new domain.
-- **Idea 6 (CI):** `090` explicitly authorizes adding `.github/workflows/` files
+- **Idea 5 visualizations:** originally flagged against a "no reports/charts"
+  non-goal; the maintainer clarified in review that charts/visualizations are
+  **not** a non-goal, so `070e` now includes a goal-history chart and the flag
+  is removed (STATE.md and ROUTINE_PROMPT.md non-goal lists updated to match).
+- **Idea 6 (CI):** `020` explicitly authorizes adding `.github/workflows/` files
   (normally forbidden by the routine), while leaving `release.yml`,
   release-please config, and Dockerfiles untouched.
+
+### Review revisions (2026-06-17, maintainer review of the original PR)
+
+The maintainer reviewed the first draft of these specs and asked for changes,
+applied in the same PR:
+
+1. **"No reports/charts" is not a non-goal.** Removed it from STATE.md and
+   ROUTINE_PROMPT.md non-goal lists; `070e` and `070b` updated so data
+   visualizations are explicitly in scope.
+2. **`070a`** gains (a) an append-only `GoalAllocationChange` history ledger so
+   allocation changes are tracked over time (and preserved when a goal is
+   archived, for future statistics), and (b) an archive `releaseToBalance`
+   option that can also deduct the freed money from account balances (archiving
+   as "paying" a big planned expense). Cascaded into `070b` (archive UI +
+   history), `070c` (writes `BUDGET_LOCK` history), `070d` (`BALANCE_REALLOCATION`
+   history), and `070e` (velocity now sourced from the history endpoint).
+3. **`070d`** now also handles balance **increases**: single-goal checkbox
+   (default keyed off whether the account was ≈100% allocated) and multi-goal
+   manual distribution, in addition to the existing decrease/deficit rules.
+4. **`020` (was `090`)** reprioritised to first and extended to also build/push
+   a per-PR image (`pr-<number>`, branch-name-agnostic) so a feature can be
+   test-deployed before it's merged.
 
 ### Deviations / cut
 

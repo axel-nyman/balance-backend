@@ -20,10 +20,12 @@ undoes it — so the goals stay accurate without separate manual bookkeeping.
 Let each budget **savings** item optionally reference one goal (0 or 1). On
 **lock**, for every savings item that names a goal, increase that goal's
 allocation on the savings item's account by the item's amount (extending the
-existing lock transaction). On **unlock**, reverse exactly that. This must
-compose with the existing lock behaviour (transfers, todo generation, AUTOMATIC
-balance history, recurring stamping) and must preserve the lock/unlock
-invariant: unlock fully restores pre-lock state, including goal allocations.
+existing lock transaction) and append a `BUDGET_LOCK` `GoalAllocationChange`
+history row (070a). On **unlock**, reverse exactly that (allocations and their
+history reversal). This must compose with the existing lock behaviour
+(transfers, todo generation, AUTOMATIC balance history, recurring stamping) and
+must preserve the lock/unlock invariant: unlock fully restores pre-lock state,
+including goal allocations.
 
 ## Acceptance criteria
 
@@ -34,7 +36,9 @@ invariant: unlock fully restores pre-lock state, including goal allocations.
       it preserves today's behaviour (the deployed frontend keeps working)
 - [ ] On lock, each savings item with a `savingsGoalId` adds its `amount` to
       that goal's `GoalAllocation` on the item's `bankAccountId` (creating or
-      increasing the allocation), inside the existing lock `@Transactional`
+      increasing the allocation), inside the existing lock `@Transactional`,
+      writing a `BUDGET_LOCK` `GoalAllocationChange` history row (070a) per
+      change; unlock writes the reversing history rows
 - [ ] Allocation-on-lock still respects the unallocated invariant from 070a;
       locking surfaces a clear domain error if it would over-allocate an account
       (decide and document the rule — e.g. the lock already credits the account

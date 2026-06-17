@@ -29,7 +29,10 @@ Add a **Goals** page reachable from the sidebar:
 - **Detail page** (`/goals/:id`): goal summary, per-account allocation
   breakdown, progress, and actions to **edit** the goal, **manually assign**
   money from an account (capped at that account's unallocated amount), and
-  **archive** the goal (with a confirm — archiving frees the money).
+  **archive** the goal. The archive confirm offers the 070a `releaseToBalance`
+  choice: archive and free the earmark (balances unchanged, default), or archive
+  *and* deduct the money from the backing accounts' balances (the goal was a real
+  expense that's now paid) — phrase the two options plainly.
 
 ## Acceptance criteria
 
@@ -42,7 +45,7 @@ Add a **Goals** page reachable from the sidebar:
       exceeding its unallocated amount (client-side guard + backend enforces)
 - [ ] Detail page shows per-account allocation breakdown and progress, and
       supports edit, manual assign (capped at unallocated), and archive (with
-      confirmation)
+      confirmation that includes the `releaseToBalance` yes/no choice from 070a)
 - [ ] All money rendered with the existing sv-SE formatters; mobile-first
       layout consistent with the accounts/budgets pages
 - [ ] Loading skeletons and error toasts follow existing patterns
@@ -63,8 +66,9 @@ Add a **Goals** page reachable from the sidebar:
   layout as a model for the goals grid.
 - New API module `src/api/goals.ts` + types in `src/api/types.ts`; hooks in
   `src/hooks/use-goals.ts`; extend `src/hooks/query-keys.ts` with `goals`.
-- The progress indicator should be a simple **progress bar** (like the todo
-  page's), not a chart — keeps within the app's no-reports/charts stance.
+- The progress indicator on the **cards** should be a simple **progress bar**
+  (like the todo page's) to keep the grid clean; richer history visualizations
+  belong on the detail page in 070e.
 
 ## Out of scope
 
