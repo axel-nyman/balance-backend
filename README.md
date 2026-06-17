@@ -91,6 +91,19 @@ Hub (`axelnyman/balance-backend`), and the Raspberry Pi running production
 pulls them. Merging a feature PR alone does not deploy; the release-PR merge
 is the deploy gate.
 
+### PR preview images
+
+Separately, every open pull request (once its tests pass) publishes a
+multi-arch image tagged **`pr-<number>`** (e.g.
+`axelnyman/balance-backend:pr-42`) plus a short commit-SHA tag, via the
+`docker-pr-preview.yml` workflow. These let the maintainer pull and run a
+candidate build in the **test environment** before deciding to merge. They are
+**not for production**: the workflow never pushes the versioned or `latest`
+tags (those stay exclusively release-please's), and the `pr-<number>` tags are
+not cleaned up automatically, so they accumulate on Docker Hub (automating
+cleanup is a possible follow-up). Docs-only PRs (`**.md`, `.claude/**`,
+`product/**`) skip the build.
+
 ## Where to look next
 
 - [`product/`](product/) — the product workflow: `STATE.md` (what the app is
