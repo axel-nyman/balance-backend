@@ -139,8 +139,9 @@ not run and why in the PR body. Never imply verification that didn't happen.
 - **One backlog item per run.** No drive-by refactors outside the item's
   footprint — note refactor candidates in the PR body instead.
 - **Respect the non-goals:** no auth, bank integrations, investments, debt
-  tracking, reports/charts, data export, dark mode, i18n. If a spec
-  contradicts them, skip it and say why in the run summary.
+  tracking, data export, dark mode, i18n. If a spec contradicts them, skip it
+  and say why in the run summary. (Data visualizations/charts are **not** a
+  non-goal — see STATE.md.)
 - **Data safety:** no destructive migrations (DROP/DELETE/UPDATE of data)
   unless the spec explicitly calls for it; preserve the soft-delete
   convention; never weaken the lock/unlock invariant (unlock must fully

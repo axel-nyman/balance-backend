@@ -6,7 +6,8 @@
 > `CHANGELOG.md` (generated — never hand-edit), and `.claude/thoughts/` in
 > both repos for engineering research and plans.
 
-**Last updated:** 2026-06-15 (due-recurring hint on budget detail, item 010)
+**Last updated:** 2026-06-17 (scoped new-feature backlog from item 015; revised
+per maintainer review — see Open backlog)
 
 ## What Balance is
 
@@ -20,8 +21,9 @@ real financial data — **data safety beats feature count**.
 get wrong. It is not a general-purpose finance platform.
 
 **Non-goals (firm):** no auth/user accounts, no bank integrations, no
-investments or debt tracking, no reports/charts, no data export, no dark mode,
-no i18n.
+investments or debt tracking, no data export, no dark mode, no i18n.
+(Data visualizations/charts are **not** a non-goal — clarified by the maintainer
+in the item 015 review; focused charts that aid the monthly routine are welcome.)
 
 ## The monthly routine it supports
 
@@ -92,7 +94,7 @@ Money is `BigDecimal` / `NUMERIC(19,2)` everywhere. Flyway migrations V1–V4
   `/{budgetId}/todo-list/items/{id}` PUT.
 - `/api/recurring-expenses` — POST, GET; `/{id}` GET, PUT, DELETE.
 - There is no `PUT /api/budgets/{id}` — month/year is not editable after
-  creation (backlog item 030).
+  creation (a possible future item; not yet specced).
 
 ## Frontend pages
 
@@ -139,6 +141,32 @@ Money is `BigDecimal` / `NUMERIC(19,2)` everywhere. Flyway migrations V1–V4
 - `todo/backlog/sprint-5/` holds 10 unimplemented E2E-test-hardening stories
   from the original build-out; promote into `product/backlog/` if wanted.
 - No rate limiting and no auth: fine on a LAN, never expose to the internet.
+- **Doc drift:** backlog specs live **flat in `product/`** (e.g.
+  `product/020-….md`), not in a `product/backlog/` subdirectory. `README.md`,
+  both `CLAUDE.md` files, and `ROUTINE_PROMPT.md` still say `product/backlog/`;
+  only `done/` is a real subdir. Treat "the backlog" as the `NNN-*.md` files in
+  `product/` until the docs are reconciled.
+
+## Open backlog (as of 2026-06-17)
+
+Specs live directly in `product/` (filename `NNN-slug.md`, lowest number =
+highest priority). Item 015 scoped six raw feature ideas into these; priority
+order reflects the maintainer's item 015 review (PR preview image first):
+
+- `020` build/push a **per-PR** Docker image (`pr-<number>` tag) for a test
+  deployment (CI, both repos, M) — prioritised first so later features can be
+  test-deployed before merge. (The earlier `unstable`-on-merge image was dropped
+  per the item 015 review; only the per-PR image is wanted.)
+- `030` wizard modal buttons clipped on iPhone (frontend, S)
+- `040` collapse not-due recurring expenses in the wizard (frontend, S)
+- `050` tighter wizard density / smaller desktop quick-add cards (frontend, M)
+- `060` near-real-time refresh to sync two open sessions (frontend, S)
+- `070a–070e` **savings goals** (split: backend foundation → goals pages →
+  budget linking on lock → manual-balance reallocation → progress/predictions).
+  Sizeable new domain — `070a` is the gate. `070a` now includes an append-only
+  allocation-history ledger and an archive option that can release allocations
+  back to account balances; `070e` adds progress visualizations (charts are in
+  scope — see the non-goals note above).
 
 ## Recently completed
 
@@ -147,6 +175,7 @@ Money is `BigDecimal` / `NUMERIC(19,2)` everywhere. Flyway migrations V1–V4
 
 | Date | Item | Repos |
 |---|---|---|
+| 2026-06-17 | Scope six new-feature ideas into specs (item 015) | backend (docs) |
 | 2026-06-15 | Due-recurring hint on budget detail page (item 010) | frontend, backend (bookkeeping) |
 | 2026-06-14 | Rewrite backend README to describe Balance (item 005) | backend |
 | 2026-06-12 | Product workflow set up (`product/` system, CLAUDE.md doc fixes) | backend, frontend |
