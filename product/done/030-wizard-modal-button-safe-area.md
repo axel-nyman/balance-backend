@@ -68,3 +68,26 @@ than inventing a new one).
 - Hard to verify pixel-perfectly without the physical device; the implementer
   should reason from the CSS and note in the PR that on-device confirmation is
   the maintainer's to do.
+
+## Completion notes
+
+- **Date:** 2026-06-17
+- **PRs:** balance-frontend (this item's implementation) + balance-backend (this
+  bookkeeping). Cross-linked; no merge-order dependency (frontend-only change).
+- **Interpretation:** Replaced the wizard item modal footer's fixed `pb-2` with
+  `pb-[max(0.5rem,env(safe-area-inset-bottom))]`. The `max()` keeps the existing
+  0.5rem floor on devices that report no safe-area inset (desktop, unchanged),
+  and grows the bottom padding to the inset on notched/rounded phones so the
+  "Done"/"Delete" buttons clear the home indicator.
+- **Scope decision:** Made the change on `WizardItemEditModal`'s footer only, not
+  the shared `SheetContent` primitive. `side="bottom"` is used in exactly one
+  place in the codebase (the wizard item modal), so the narrowest fix fully
+  covers the reported bug; no other bottom sheet shares it. All three uses
+  (income/expenses/savings) share this component, so all are covered.
+- **Tests:** Added `WizardItemEditModal.test.tsx` — asserts the action buttons
+  render and that the footer carries the safe-area padding utility. Full
+  frontend suite green: lint (0 errors), `tsc --noEmit` clean, 499 tests across
+  55 files pass, `npm run build` succeeds.
+- **Not verified:** On-device pixel confirmation on a physical iPhone is the
+  maintainer's to do (per the spec's note); the change is reasoned from the CSS.
+- **Deviations / cut:** None.
