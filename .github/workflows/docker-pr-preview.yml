@@ -89,6 +89,7 @@ jobs:
           tags: |
             type=ref,event=pr
             type=sha
+            type=raw,value=pr-latest
 
       - name: Build and push Docker image
         if: steps.creds.outputs.available == 'true'
