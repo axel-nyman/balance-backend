@@ -6,7 +6,7 @@
 > `CHANGELOG.md` (generated — never hand-edit), and `.claude/thoughts/` in
 > both repos for engineering research and plans.
 
-**Last updated:** 2026-06-15 (due-recurring hint on budget detail, item 010)
+**Last updated:** 2026-06-17 (scoped new-feature backlog from item 015)
 
 ## What Balance is
 
@@ -139,6 +139,26 @@ Money is `BigDecimal` / `NUMERIC(19,2)` everywhere. Flyway migrations V1–V4
 - `todo/backlog/sprint-5/` holds 10 unimplemented E2E-test-hardening stories
   from the original build-out; promote into `product/backlog/` if wanted.
 - No rate limiting and no auth: fine on a LAN, never expose to the internet.
+- **Doc drift:** backlog specs live **flat in `product/`** (e.g.
+  `product/020-….md`), not in a `product/backlog/` subdirectory. `README.md`,
+  both `CLAUDE.md` files, and `ROUTINE_PROMPT.md` still say `product/backlog/`;
+  only `done/` is a real subdir. Treat "the backlog" as the `NNN-*.md` files in
+  `product/` until the docs are reconciled.
+
+## Open backlog (as of 2026-06-17)
+
+Specs live directly in `product/` (filename `NNN-slug.md`, lowest number =
+highest priority). Item 015 scoped six raw feature ideas into these:
+
+- `020` wizard modal buttons clipped on iPhone (frontend, S)
+- `040` collapse not-due recurring expenses in the wizard (frontend, S)
+- `050` tighter wizard density / smaller desktop quick-add cards (frontend, M)
+- `060` near-real-time refresh to sync two open sessions (frontend, S)
+- `070a–070e` **savings goals** (split: backend foundation → goals pages →
+  budget linking on lock → manual-balance reallocation → progress/predictions).
+  Sizeable new domain — `070a` is the gate; `070e` (visualizations) is flagged
+  against the no-reports/charts non-goal and needs maintainer confirmation.
+- `090` build/push `unstable` Docker images on merge to main (CI, both repos, M)
 
 ## Recently completed
 
@@ -147,6 +167,7 @@ Money is `BigDecimal` / `NUMERIC(19,2)` everywhere. Flyway migrations V1–V4
 
 | Date | Item | Repos |
 |---|---|---|
+| 2026-06-17 | Scope six new-feature ideas into specs (item 015) | backend (docs) |
 | 2026-06-15 | Due-recurring hint on budget detail page (item 010) | frontend, backend (bookkeeping) |
 | 2026-06-14 | Rewrite backend README to describe Balance (item 005) | backend |
 | 2026-06-12 | Product workflow set up (`product/` system, CLAUDE.md doc fixes) | backend, frontend |

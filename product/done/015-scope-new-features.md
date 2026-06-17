@@ -43,3 +43,61 @@ Don't implement anything.
 ## Notes
 
 Split anything too large into several smaller features if needed.
+
+## Completion notes
+
+- **Date:** 2026-06-17
+- **Repo / PR:** balance-backend (docs-only) — branch
+  `claude/youthful-hamilton-gh2fag`. No code changed; this item only scopes
+  specs. No frontend PR (nothing to build per "Out of scope: Don't implement
+  anything").
+
+### What was produced
+
+Each of the six ideas was turned into a TEMPLATE-shaped spec in `product/`,
+grounded in the actual code (file paths and method/line references included so
+the implementer can act). Idea 5 ("the BIG one") was split into five sequenced,
+independently-mergeable parts as the spec invited. New items, by priority:
+
+| New item | Idea | Scope | Size |
+|---|---|---|---|
+| `020-wizard-modal-button-safe-area` | 1 — clipped modal buttons on iPhone | frontend | S |
+| `040-wizard-hide-non-due-recurring` | 2 — collapse not-due recurring in wizard | frontend | S |
+| `050-wizard-density` | 3 — tighter wizard / smaller desktop quick-add cards | frontend | M |
+| `060-near-realtime-refresh` | 4 — keep two open sessions in sync | frontend | S |
+| `070a-savings-goals-backend-foundation` | 5 — entity + allocation ledger + CRUD | backend | M |
+| `070b-savings-goals-pages` | 5 — sidebar page, detail, create/edit/assign | frontend | M |
+| `070c-savings-goals-budget-linking` | 5 — link budget savings, allocate on lock | full-stack | M |
+| `070d-savings-goals-balance-reallocation` | 5 — manual-balance-change reallocation | full-stack | M |
+| `070e-savings-goals-predictions` | 5 — progress, end-date & velocity projections | frontend | M |
+| `090-unstable-prerelease-images` | 6 — `unstable` Docker images on merge to main | full-stack (CI) | M |
+
+Numbering leaves gaps for insertion and **skips 030**, which STATE.md already
+references for a hypothetical "make month/year editable" item.
+
+### Interpretation decisions & flags
+
+- **Idea 4 (real-time):** scoped as the simplest data-safe interpretation —
+  React Query background polling, frontend-only, no backend infra (the backend
+  has no SSE/WebSocket/messaging today). True push is called out as a possible
+  follow-up inside `060`, not built.
+- **Idea 5 split rationale:** `070a` is a pure ledger over existing balances and
+  never mutates `currentBalance`; the only places balances and allocations
+  interact are the lock flow (`070c`) and manual balance changes (`070d`), which
+  are isolated into their own specs to keep the safety-critical lock/unlock
+  invariant front-of-mind.
+- **Idea 5 vs non-goals (FLAG):** `070e` (visualizations/predictions) brushes
+  against the firm "no reports/charts" non-goal. The spec is scoped to progress
+  bars + textual projections only and **explicitly asks the maintainer to
+  confirm** the desired visual fidelity before it's built. The maintainer should
+  also sanity-check that savings goals as a whole are wanted before `070a`
+  starts, since it's a sizeable new domain.
+- **Idea 6 (CI):** `090` explicitly authorizes adding `.github/workflows/` files
+  (normally forbidden by the routine), while leaving `release.yml`,
+  release-please config, and Dockerfiles untouched.
+
+### Deviations / cut
+
+- Nothing implemented, per the item's "Out of scope". These specs are proposals;
+  the maintainer prioritizes/approves them by merging this PR, and a later run
+  picks them up lowest-number-first.
