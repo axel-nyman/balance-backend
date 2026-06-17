@@ -62,7 +62,7 @@ independently-mergeable parts as the spec invited. New items, by priority:
 
 | New item | Idea | Scope | Size |
 |---|---|---|---|
-| `020-unstable-prerelease-images` | 6 — `unstable` (on merge) + per-PR Docker images | full-stack (CI) | M |
+| `020-pr-preview-images` | 6 — per-PR (`pr-<number>`) Docker image for test deploys | full-stack (CI) | M |
 | `030-wizard-modal-button-safe-area` | 1 — clipped modal buttons on iPhone | frontend | S |
 | `040-wizard-hide-non-due-recurring` | 2 — collapse not-due recurring in wizard | frontend | S |
 | `050-wizard-density` | 3 — tighter wizard / smaller desktop quick-add cards | frontend | M |
@@ -73,8 +73,8 @@ independently-mergeable parts as the spec invited. New items, by priority:
 | `070d-savings-goals-balance-reallocation` | 5 — manual-balance-change reallocation | full-stack | M |
 | `070e-savings-goals-predictions` | 5 — progress, end-date & velocity projections + chart | frontend | M |
 
-Priority order reflects the **maintainer's item 015 review**: the unstable/
-per-PR images (`020`) were moved to the front so later features can be test-
+Priority order reflects the **maintainer's item 015 review**: the per-PR
+preview image (`020`) was moved to the front so later features can be test-
 deployed before merge. The wizard button fix moved `020 → 030`.
 
 ### Interpretation decisions & flags
@@ -118,8 +118,19 @@ applied in the same PR:
    a per-PR image (`pr-<number>`, branch-name-agnostic) so a feature can be
    test-deployed before it's merged.
 
+### Final adjustment (2026-06-17, second maintainer review)
+
+On re-review the maintainer left one comment on `020`: *"let's just go with the
+PR image, that's the one I'll realistically ever use."* So the
+`unstable`-on-merge-to-main image was dropped entirely and the spec is now
+**PR-image-only**. The file was renamed `020-unstable-prerelease-images.md` →
+`020-pr-preview-images.md` (ID `020-pr-preview-images`) to match the narrowed
+scope; STATE.md updated accordingly. No other specs changed.
+
 ### Deviations / cut
 
 - Nothing implemented, per the item's "Out of scope". These specs are proposals;
   the maintainer prioritizes/approves them by merging this PR, and a later run
   picks them up lowest-number-first.
+- The `unstable`-on-merge image (originally half of `020`) was cut per the
+  second review; only the per-PR preview image remains.

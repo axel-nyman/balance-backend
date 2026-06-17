@@ -151,11 +151,12 @@ Money is `BigDecimal` / `NUMERIC(19,2)` everywhere. Flyway migrations V1–V4
 
 Specs live directly in `product/` (filename `NNN-slug.md`, lowest number =
 highest priority). Item 015 scoped six raw feature ideas into these; priority
-order reflects the maintainer's item 015 review (unstable images first):
+order reflects the maintainer's item 015 review (PR preview image first):
 
-- `020` build/push `unstable` (on merge to main) **and per-PR** Docker images
-  for a test deployment (CI, both repos, M) — prioritised first so later
-  features can be test-deployed before merge
+- `020` build/push a **per-PR** Docker image (`pr-<number>` tag) for a test
+  deployment (CI, both repos, M) — prioritised first so later features can be
+  test-deployed before merge. (The earlier `unstable`-on-merge image was dropped
+  per the item 015 review; only the per-PR image is wanted.)
 - `030` wizard modal buttons clipped on iPhone (frontend, S)
 - `040` collapse not-due recurring expenses in the wizard (frontend, S)
 - `050` tighter wizard density / smaller desktop quick-add cards (frontend, M)
