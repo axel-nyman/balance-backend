@@ -114,3 +114,55 @@ It must:
 - CI changes can't be fully verified locally; rely on the workflow running on
   the PR itself, and say so in the PR. Use `act` or a syntax check if available,
   but don't claim a green run that didn't happen.
+
+## Completion notes
+
+- **Completed:** 2026-06-17
+- **PRs:**
+  - balance-backend: `claude/youthful-hamilton-rwyeh3` — adds
+    `.github/workflows/docker-pr-preview.yml` + README "PR preview images" note
+    + this bookkeeping.
+  - balance-frontend: `claude/peaceful-hamilton-rwyeh3` — adds
+    `.github/workflows/docker-pr-preview.yml` + README "Docker preview images"
+    note.
+  - No merge ordering between the two (each repo owns its own workflow); cross-
+    linked in the PR bodies.
+
+### Interpretation decisions
+- **Trigger shape:** chose the spec's recommended *self-contained* shape — a
+  `test` job plus a `build-push` job that `needs:` it — over the `workflow_run`
+  alternative. Reason: `workflow_run` executes in the default-branch context,
+  which makes deriving the PR number (and thus the `pr-<number>` tag) awkward;
+  the self-contained gate is atomic and reads top-to-bottom. Trade-off: the
+  test suite also runs in the existing `test.yml`/`ci.yml` on the same PR, i.e.
+  it runs twice. Accepted for a clear, self-gating image build.
+- **Tags:** `docker/metadata-action` with `type=ref,event=pr` (→ `pr-<number>`,
+  branch-name agnostic) plus `type=sha` (short commit SHA, for traceability).
+  No semver/`latest` tags are ever pushed here.
+- **Tag rule precision:** by default `docker/metadata-action`'s `type=ref`
+  events apply to `flavor.latest=auto` only for the default branch, and we set
+  no `latest` flavor, so `latest` cannot be produced — `release.yml` remains the
+  sole source of `latest`/semver.
+- **Secret guarding:** detect Docker Hub credentials in a `creds` step (reading
+  them via `env:` to avoid script injection) and gate the QEMU/Buildx/login/
+  metadata/build steps on their presence, so a fork PR (no secrets) no-ops the
+  push instead of failing. This repo's PRs come from same-repo `claude/*`
+  branches, so credentials are normally present.
+- **Per-repo secret names preserved:** backend uses `DOCKER_USERNAME` /
+  `DOCKER_PASSWORD`; frontend uses `DOCKER_USERNAME` / `DOCKER_TOKEN`. Not
+  renamed.
+- **paths-ignore:** `**.md`, `.claude/**`, `product/**` on both workflows so
+  docs-only PRs don't build an image (backend had no `paths-ignore` before).
+- **Concurrency:** one in-flight preview build per PR
+  (`cancel-in-progress: true`, keyed on the PR number) so rapid pushes don't
+  pile up multi-arch builds.
+
+### Deviations / not done
+- `release.yml`, `release-please` config, manifests, and the Dockerfiles are
+  unchanged, per spec.
+- **Verification:** GitHub Actions workflows can't be executed locally in this
+  environment. Validated both files parse as YAML (`yaml.safe_load`). The real
+  green run only happens when these PRs trigger the workflow on GitHub — called
+  out in both PR bodies. No green CI run is claimed here.
+- **Follow-up (out of scope, noted in spec):** automatic cleanup of accumulated
+  `pr-<number>` tags on Docker Hub (e.g. a `pull_request: closed` job).

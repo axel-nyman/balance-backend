@@ -60,7 +60,10 @@ in the item 015 review; focused charts that aid the monthly routine are welcome.
   per repo → the maintainer merges it → GitHub Actions builds multi-arch
   (amd64 + arm64) images → Docker Hub → the Raspberry Pi runs them. Merging a
   feature PR alone does **not** deploy; the release-PR merge is the deploy
-  gate.
+  gate. Separately, each open PR (when its tests pass) publishes a
+  non-production **`pr-<number>`** preview image via `docker-pr-preview.yml` —
+  for trying a candidate build in a test environment before merge; it never
+  pushes `latest`/semver (item 020).
 
 ## Domain model (backend)
 
@@ -153,10 +156,6 @@ Specs live directly in `product/` (filename `NNN-slug.md`, lowest number =
 highest priority). Item 015 scoped six raw feature ideas into these; priority
 order reflects the maintainer's item 015 review (PR preview image first):
 
-- `020` build/push a **per-PR** Docker image (`pr-<number>` tag) for a test
-  deployment (CI, both repos, M) — prioritised first so later features can be
-  test-deployed before merge. (The earlier `unstable`-on-merge image was dropped
-  per the item 015 review; only the per-PR image is wanted.)
 - `030` wizard modal buttons clipped on iPhone (frontend, S)
 - `040` collapse not-due recurring expenses in the wizard (frontend, S)
 - `050` tighter wizard density / smaller desktop quick-add cards (frontend, M)
@@ -175,6 +174,7 @@ order reflects the maintainer's item 015 review (PR preview image first):
 
 | Date | Item | Repos |
 |---|---|---|
+| 2026-06-17 | Per-PR `pr-<number>` Docker preview-image workflows (item 020) | backend (CI+docs), frontend (CI+docs) |
 | 2026-06-17 | Scope six new-feature ideas into specs (item 015) | backend (docs) |
 | 2026-06-15 | Due-recurring hint on budget detail page (item 010) | frontend, backend (bookkeeping) |
 | 2026-06-14 | Rewrite backend README to describe Balance (item 005) | backend |
