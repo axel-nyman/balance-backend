@@ -6,8 +6,8 @@
 > `CHANGELOG.md` (generated — never hand-edit), and `.claude/thoughts/` in
 > both repos for engineering research and plans.
 
-**Last updated:** 2026-06-17 (scoped new-feature backlog from item 015; revised
-per maintainer review — see Open backlog)
+**Last updated:** 2026-06-18 (item 040 — collapse non-due recurring expenses in
+the budget wizard)
 
 ## What Balance is
 
@@ -108,7 +108,9 @@ Money is `BigDecimal` / `NUMERIC(19,2)` everywhere. Flyway migrations V1–V4
 - `/budgets` — budget card grid (status + totals); "new budget" leads to the
   wizard (one unlocked budget at a time — enforced in UI and backend).
 - `/budgets/new` — 5-step wizard; copy-from-last-budget; due templates grouped
-  with "add all due"; create requires balance = 0.
+  with "add all due"; non-due recurring templates are tucked behind a
+  "Show other recurring expenses (N)" collapsible on the expenses step
+  (item 040); create requires balance = 0.
 - `/budgets/:id` — income/expenses/savings sections with add/edit/delete
   modals (UNLOCKED only); summary with balance bar; lock/unlock/delete
   actions; link to the todo page when locked. On UNLOCKED budgets a
@@ -157,7 +159,6 @@ highest priority). Item 015 scoped six raw feature ideas into these; priority
 order reflects the maintainer's item 015 review (PR preview image first):
 
 - `030` wizard modal buttons clipped on iPhone (frontend, S)
-- `040` collapse not-due recurring expenses in the wizard (frontend, S)
 - `050` tighter wizard density / smaller desktop quick-add cards (frontend, M)
 - `060` near-real-time refresh to sync two open sessions (frontend, S)
 - `070a–070e` **savings goals** (split: backend foundation → goals pages →
@@ -174,6 +175,7 @@ order reflects the maintainer's item 015 review (PR preview image first):
 
 | Date | Item | Repos |
 |---|---|---|
+| 2026-06-18 | Collapse non-due recurring expenses in the budget wizard (item 040) | frontend, backend (bookkeeping) |
 | 2026-06-17 | Per-PR `pr-<number>` Docker preview-image workflows (item 020) | backend (CI+docs), frontend (CI+docs) |
 | 2026-06-17 | Scope six new-feature ideas into specs (item 015) | backend (docs) |
 | 2026-06-15 | Due-recurring hint on budget detail page (item 010) | frontend, backend (bookkeeping) |
