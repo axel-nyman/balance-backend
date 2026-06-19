@@ -91,3 +91,31 @@ than inventing a new one).
 - **Not verified:** On-device pixel confirmation on a physical iPhone is the
   maintainer's to do (per the spec's note); the change is reasoned from the CSS.
 - **Deviations / cut:** None.
+
+### Follow-up after maintainer review (2026-06-19)
+
+On-device review of the frontend PR found the original `env()`-based change had
+**no effect** in the installed PWA, and clarified the real symptom: the
+bottom-most **Delete** button's *left/right* edges are clipped by the phone's
+rounded corners (the bottom edge is fine).
+
+- **Root cause:** the app's viewport meta is `width=device-width,
+  initial-scale=1.0` with **no `viewport-fit=cover`**. Without it, iOS keeps the
+  web view inside the safe area and every `env(safe-area-inset-*)` resolves to
+  `0` — so `pb-[max(0.5rem,env(safe-area-inset-bottom))]` collapsed to plain
+  `0.5rem` (unchanged). The existing `index.css` `.mobile-content` /
+  `.mobile-sidebar` safe-area blocks are inert for the same reason. In portrait
+  the browser reserves the home-indicator area (bottom fine) but
+  `safe-area-inset-left/right` are `0`, so full-width buttons reach the physical
+  edges where the corner radius clips them.
+- **Corrected fix:** dropped `env()` (it's `0` here) for literal, mobile-gated
+  footer padding — `flex-col gap-2 px-4 pb-4 sm:px-0 sm:pb-2`. `px-4 pb-4` insets
+  the buttons clear of the rounded corners on phones; `sm:px-0 sm:pb-2` restores
+  the exact edge-to-edge desktop spacing (desktop unchanged). Test updated to
+  assert the responsive padding utilities. Suite green: lint (0 errors),
+  `tsc --noEmit` clean, 499 tests pass, build succeeds; frontend PR CI green.
+- **Noted for the maintainer (not done here):** real app-wide safe-area handling
+  (which would also activate the dormant `index.css` blocks) needs
+  `viewport-fit=cover` on the viewport meta — a broader change requiring
+  on-device checks across every screen; left out of this narrow fix and offered
+  as a possible separate backlog item.
