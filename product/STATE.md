@@ -6,8 +6,7 @@
 > `CHANGELOG.md` (generated — never hand-edit), and `.claude/thoughts/` in
 > both repos for engineering research and plans.
 
-**Last updated:** 2026-06-17 (scoped new-feature backlog from item 015; revised
-per maintainer review — see Open backlog)
+**Last updated:** 2026-06-17 (item 030 done — wizard modal safe-area fix)
 
 ## What Balance is
 
@@ -156,7 +155,6 @@ Specs live directly in `product/` (filename `NNN-slug.md`, lowest number =
 highest priority). Item 015 scoped six raw feature ideas into these; priority
 order reflects the maintainer's item 015 review (PR preview image first):
 
-- `030` wizard modal buttons clipped on iPhone (frontend, S)
 - `040` collapse not-due recurring expenses in the wizard (frontend, S)
 - `050` tighter wizard density / smaller desktop quick-add cards (frontend, M)
 - `060` near-real-time refresh to sync two open sessions (frontend, S)
@@ -174,6 +172,7 @@ order reflects the maintainer's item 015 review (PR preview image first):
 
 | Date | Item | Repos |
 |---|---|---|
+| 2026-06-17 | Wizard item modal buttons clear the iPhone home indicator (item 030) | frontend, backend (bookkeeping) |
 | 2026-06-17 | Per-PR `pr-<number>` Docker preview-image workflows (item 020) | backend (CI+docs), frontend (CI+docs) |
 | 2026-06-17 | Scope six new-feature ideas into specs (item 015) | backend (docs) |
 | 2026-06-15 | Due-recurring hint on budget detail page (item 010) | frontend, backend (bookkeeping) |
