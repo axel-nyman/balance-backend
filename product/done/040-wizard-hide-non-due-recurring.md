@@ -58,3 +58,39 @@ toggle are visible. Expanding shows the same quick-add cards that exist today.
 ## Notes
 
 - Pairs naturally with item 050 (wizard density) but is independently shippable.
+
+## Completion notes
+
+- **Date:** 2026-06-18
+- **PRs:** frontend axel-nyman/balance-frontend (branch
+  `claude/peaceful-hamilton-tx79tf`); backend bookkeeping (this branch
+  `claude/youthful-hamilton-tx79tf`). Frontend-only feature — no merge-order
+  dependency.
+- **Implementation:** In `StepExpenses.tsx` the non-due ("Other recurring")
+  group is now wrapped in the existing shadcn `Collapsible`, collapsed by
+  default. The trigger is a ghost button reading
+  `Show other recurring expenses (N)` when collapsed (N = number of hidden
+  non-due templates) and `Hide other recurring expenses` when expanded, with the
+  same chevron-rotate affordance used by the review step. The "Due this month"
+  group is unchanged (expanded, "Add All"). Expanding renders the exact same
+  `WizardItemCard variant="quick-add"` cards wrapped in `CollapseWrapper`, so add
+  behaviour, copy animations, and "added" feedback are preserved.
+- **Interpretation decisions:**
+  - Chose the inline `Collapsible` (the spec's preferred option) over a modal.
+  - The toggle replaces the former static `Other recurring` /
+    `Quick add from recurring` heading; when there are no due templates the
+    toggle is the only recurring control and the step still reads sensibly (AC).
+  - Collapsed by default in all cases, including the no-due-templates case (the
+    spec does not ask for auto-expand there).
+  - Radix `CollapsibleContent` unmounts when closed, so non-due cards occupy no
+    vertical space until expanded (satisfies the "do not occupy vertical space"
+    AC) and are absent from the DOM/tests until the toggle is opened.
+- **Tests:** Updated the existing
+  `shows quick-add section when recurring expenses exist` test (non-due item is
+  now behind the toggle) and added a `non-due recurring collapse` describe block
+  covering due-only, non-due-only, both, and neither, plus expand/collapse and
+  adding from the expanded list. Full frontend suite green: `npm run lint`
+  (0 errors, 7 pre-existing warnings), `npx tsc --noEmit` clean,
+  `npm test -- --run` 503 passed (54 files), `npm run build` succeeds.
+- **Deviations / cut:** none. No backend change (template data already comes
+  from `GET /api/recurring-expenses`).
