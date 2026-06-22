@@ -122,8 +122,10 @@ not run and why in the PR body. Never imply verification that didn't happen.
 
 ### 8. Deliver
 - Push your branch(es) and open **one PR per touched repo**.
-- PR title in Conventional Commit style (squash-merge turns it into the
-  release-driving commit). PR body: what + why, `Backlog item: <id>`, test
+- PR title in Conventional Commit style — a `PR Title Lint` check enforces it
+  and squash-merge turns it into the release-driving commit on `main`, so a
+  non-conventional title fails CI and blocks the merge. PR body: what + why,
+  `Backlog item: <id>`, test
   evidence (commands and results), assumptions/limitations, screenshots for UI
   changes when possible. For full-stack items, cross-link the sibling PR and
   state the merge order (backend first).

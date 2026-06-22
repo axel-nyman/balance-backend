@@ -1,0 +1,21 @@
+name: PR Title Lint
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  validate:
+    name: Validate PR title (Conventional Commits)
+    runs-on: ubuntu-latest
+    steps:
+      # PRs are squash-merged with the PR title as the commit subject, and
+      # release-please parses those commits to drive versions and the changelog.
+      # Enforce that every PR title is a valid Conventional Commit so the
+      # squashed commit on main is always parseable.
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
