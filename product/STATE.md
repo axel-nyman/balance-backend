@@ -152,13 +152,12 @@ Money is `BigDecimal` / `NUMERIC(19,2)` everywhere. Flyway migrations V1–V4
   only `done/` is a real subdir. Treat "the backlog" as the `NNN-*.md` files in
   `product/` until the docs are reconciled.
 
-## Open backlog (as of 2026-06-17)
+## Open backlog (as of 2026-06-18)
 
 Specs live directly in `product/` (filename `NNN-slug.md`, lowest number =
 highest priority). Item 015 scoped six raw feature ideas into these; priority
 order reflects the maintainer's item 015 review (PR preview image first):
 
-- `030` wizard modal buttons clipped on iPhone (frontend, S)
 - `050` tighter wizard density / smaller desktop quick-add cards (frontend, M)
 - `060` near-real-time refresh to sync two open sessions (frontend, S)
 - `070a–070e` **savings goals** (split: backend foundation → goals pages →
@@ -176,6 +175,7 @@ order reflects the maintainer's item 015 review (PR preview image first):
 | Date | Item | Repos |
 |---|---|---|
 | 2026-06-18 | Collapse non-due recurring expenses in the budget wizard (item 040) | frontend, backend (bookkeeping) |
+| 2026-06-17 | Wizard item modal buttons clear the iPhone home indicator (item 030) | frontend, backend (bookkeeping) |
 | 2026-06-17 | Per-PR `pr-<number>` Docker preview-image workflows (item 020) | backend (CI+docs), frontend (CI+docs) |
 | 2026-06-17 | Scope six new-feature ideas into specs (item 015) | backend (docs) |
 | 2026-06-15 | Due-recurring hint on budget detail page (item 010) | frontend, backend (bookkeeping) |
