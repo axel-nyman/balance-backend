@@ -76,3 +76,51 @@ None. Reads use existing endpoints.
   seconds, not seconds) and visibility-gated so two idle tabs don't hammer the
   API.
 - Data-safe by construction: this item only adds background GETs.
+
+## Completion notes
+
+- **Completed:** 2026-06-23
+- **PRs:** balance-frontend `feat: poll user-visible queries for near-real-time
+  cross-device sync` (branch `claude/peaceful-hamilton-dmkqk9`); balance-backend
+  this `docs:` bookkeeping PR (branch `claude/youthful-hamilton-dmkqk9`).
+- **Scope:** frontend-only feature + backend bookkeeping. No backend code or API
+  changes — reads use existing endpoints.
+
+### Interpretation decisions
+
+- **Per-query `refetchInterval`, not a global default.** Added
+  `refetchInterval: POLL_INTERVAL` to exactly the user-visible read queries —
+  `useBudgets` (list), `useBudget` (detail), `useAccounts`,
+  `useRecurringExpenses`, and `useTodoList` — rather than setting a global on the
+  QueryClient. This keeps non-data / one-off queries (e.g. the balance-history
+  infinite query behind the drawer) unpolled, matching the spec's preference.
+- **Interval = 30s**, defined once as `POLL_INTERVAL` in
+  `src/lib/query-config.ts`. Generous tens-of-seconds value per the Raspberry Pi
+  cost note; two idle tabs poll five endpoints every 30s at most.
+- **Tab-hidden pausing** relies on React Query's default
+  `refetchIntervalInBackground: false` — polling stops when the document is
+  hidden and resumes on visibility. Not set explicitly (it is the default);
+  noted here so the behavior is intentional, not accidental.
+- **Optimistic todo updates untouched.** The existing `onMutate`/`onError`/
+  `onSettled` optimistic flow in `useUpdateTodoItem` is unchanged; `onMutate`
+  still cancels in-flight queries, so a background poll cannot clobber an
+  in-flight toggle. Existing optimistic tests still pass.
+
+### Tests
+
+- New `src/hooks/polling.test.tsx` asserts the budgets-list, budget-detail,
+  accounts, and recurring-expenses queries each carry `refetchInterval ===
+  POLL_INTERVAL`.
+- Extended `src/hooks/use-todo.test.tsx` with the same assertion for the todo
+  query, alongside the pre-existing optimistic-update tests.
+- Full suite: `npm run lint` (warnings only, pre-existing), `npx tsc --noEmit`,
+  `npm test -- --run` (514 passing), and `npm run build` all green. Note: the
+  default parallel `vitest` run intermittently emits teardown "window is not
+  defined" errors from an unrelated wizard animation timer
+  (`useCopyAnimation`); this flake predates this change (the base branch fails
+  the same way) and does not reproduce under
+  `vitest run --no-file-parallelism`, which is fully green.
+
+### Deviations / cut
+
+- None. True push (SSE/WebSocket) remains out of scope as specified.

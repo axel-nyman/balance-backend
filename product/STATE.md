@@ -6,7 +6,7 @@
 > `CHANGELOG.md` (generated — never hand-edit), and `.claude/thoughts/` in
 > both repos for engineering research and plans.
 
-**Last updated:** 2026-06-23 (item 055 — clean up CI and agentic workflows)
+**Last updated:** 2026-06-23 (item 060 — near-real-time cross-device refresh)
 
 ## What Balance is
 
@@ -130,6 +130,10 @@ Money is `BigDecimal` / `NUMERIC(19,2)` everywhere. Flyway migrations V1–V4
   commit) — release-please derives versions from them.
 - Modal-based editing only; explicit save everywhere except todo checkboxes
   (optimistic updates). Apple-inspired clean, light, mobile-first UI.
+- The user-visible read queries (budget list/detail, accounts, recurring
+  expenses, todo list) background-poll every 30s (`POLL_INTERVAL` in
+  `src/lib/query-config.ts`) so two open sessions stay in near-real-time sync;
+  polling pauses when the tab is hidden (item 060). Reads only — no push/SSE.
 - Soft deletes everywhere; migrations are additive/backward compatible; never
   edit an applied migration; never hand-edit `CHANGELOG.md`.
 - Engineering conventions live in each repo's `CLAUDE.md` (3-layer
@@ -161,7 +165,6 @@ Specs live directly in `product/` (filename `NNN-slug.md`, lowest number =
 highest priority). Item 015 scoped six raw feature ideas into these; priority
 order reflects the maintainer's item 015 review (PR preview image first):
 
-- `060` near-real-time refresh to sync two open sessions (frontend, S)
 - `070a–070e` **savings goals** (split: backend foundation → goals pages →
   budget linking on lock → manual-balance reallocation → progress/predictions).
   Sizeable new domain — `070a` is the gate. `070a` now includes an append-only
@@ -176,6 +179,7 @@ order reflects the maintainer's item 015 review (PR preview image first):
 
 | Date | Item | Repos |
 |---|---|---|
+| 2026-06-23 | Near-real-time cross-device refresh via React Query polling (item 060) | frontend, backend (bookkeeping) |
 | 2026-06-23 | Clean up CI/preview workflows + tighten agent prompts (item 055) | backend (CI+docs), frontend (CI) |
 | 2026-06-23 | Tighten budget wizard quick-add card density (item 050) | frontend, backend (bookkeeping) |
 | 2026-06-18 | Collapse non-due recurring expenses in the budget wizard (item 040) | frontend, backend (bookkeeping) |
