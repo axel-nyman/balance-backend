@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.4.1](https://github.com/axel-nyman/balance-backend/compare/v1.4.0...v1.4.1) (2026-06-22)
+
+
+### Documentation
+
+* add product workflow (backlog, state doc, routine operating manual) ([9d3ea4e](https://github.com/axel-nyman/balance-backend/commit/9d3ea4ee59dab4f5c82083be60bfb0ad6ba6607d))
+* add verified environment bootstrap to routine operating manual ([21a7767](https://github.com/axel-nyman/balance-backend/commit/21a7767d0069e57bd54f7de270f3985d4c393d24))
+* mark item 010 (due-recurring hint) done and update STATE ([506ba8b](https://github.com/axel-nyman/balance-backend/commit/506ba8b7e876c88747a09150ea4bf0a3b6d67dc1))
+* mark item 030 (wizard modal safe-area) done and update STATE ([326b13e](https://github.com/axel-nyman/balance-backend/commit/326b13eb5d33ef3eb2f6f08deb59707987610255))
+* mark item 040 (collapse non-due recurring in wizard) done and update STATE ([1b9e6d1](https://github.com/axel-nyman/balance-backend/commit/1b9e6d18c55f81b04e520f8fb986a8a28028cf6f))
+* narrow item 020 to PR-only preview image per review ([4052e1e](https://github.com/axel-nyman/balance-backend/commit/4052e1e160830b65b97f719feed42e310b1701cf))
+* record review-driven correction for item 030 completion notes ([a24881d](https://github.com/axel-nyman/balance-backend/commit/a24881d2fb5fbf55ba74b4f60edeedc2eb5ab50d))
+* revise item 015 backlog specs per maintainer review ([39f1b51](https://github.com/axel-nyman/balance-backend/commit/39f1b513fdcca7ee09aadd567fec686ed44f9ecf))
+* rewrite backend README to describe Balance ([3110321](https://github.com/axel-nyman/balance-backend/commit/3110321d39b9decd56c1f1aa2727518afc24d709))
+* rewrite backend README to describe Balance ([943c022](https://github.com/axel-nyman/balance-backend/commit/943c022e550eaf63b1b4dce2174d9a5330d79620))
+* scope new-feature ideas into backlog specs (item 015) ([a4aba3c](https://github.com/axel-nyman/balance-backend/commit/a4aba3c55348f7f4d26c32ce34c7f782c28fa661))
+* Update 015-scope-new-features.md ([a28b0d3](https://github.com/axel-nyman/balance-backend/commit/a28b0d3ccb6a4140080ba52c0ec73d8e8b44a5d5))
+
 ## [1.4.0](https://github.com/axel-nyman/balance-backend/compare/v1.3.0...v1.4.0) (2026-02-15)
 
 
