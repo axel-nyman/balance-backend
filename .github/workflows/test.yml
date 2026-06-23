@@ -1,8 +1,11 @@
 name: Run Tests
 
+# PR-only: this suite gates every PR into main. A post-merge run on main is
+# redundant (the PR already passed) and only burns CI minutes, so there is no
+# push trigger — release.yml owns the merge-to-main path.
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
 

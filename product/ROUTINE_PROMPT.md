@@ -52,11 +52,13 @@ sequenced parts (`NNNa-…`, `NNNb-…`) and implement only the first part. If t
 backlog is empty, see "Empty backlog" below.
 
 ### 4. Plan
-Read the spec fully, then read the code it touches in both repos before
-writing any. Specs may be rough: choose the simplest interpretation consistent
-with the existing UX and conventions, and write that interpretation down (PR
-body + completion notes). Derive a test list from the acceptance criteria
-before implementing.
+**Invest in research before touching code.** Read the spec fully, then read the
+code it touches in both repos — surrounding files, the patterns it follows, the
+tests that already cover it — until you know exactly where the change goes.
+Time spent here is what keeps the diff small. Specs may be rough: choose the
+simplest interpretation consistent with the existing UX and conventions, and
+write that interpretation down (PR body + completion notes). Derive a test list
+from the acceptance criteria before implementing.
 
 ### 5. Implement
 - **Backend:** TDD with Testcontainers integration tests; strict 3-layer
@@ -140,6 +142,11 @@ not run and why in the PR body. Never imply verification that didn't happen.
 
 - **One backlog item per run.** No drive-by refactors outside the item's
   footprint — note refactor candidates in the PR body instead.
+- **Keep the diff focused and minimal.** Change only what the item requires;
+  the smallest correct edit that satisfies the acceptance criteria is the goal,
+  not the most thorough one. Don't reformat untouched code, add speculative
+  abstractions, or pad with comments and boilerplate. A reviewer should be able
+  to read the whole diff quickly and see nothing that isn't the feature.
 - **Respect the non-goals:** no auth, bank integrations, investments, debt
   tracking, data export, dark mode, i18n. If a spec contradicts them, skip it
   and say why in the run summary. (Data visualizations/charts are **not** a

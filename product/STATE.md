@@ -6,8 +6,7 @@
 > `CHANGELOG.md` (generated — never hand-edit), and `.claude/thoughts/` in
 > both repos for engineering research and plans.
 
-**Last updated:** 2026-06-23 (item 050 — tighten budget wizard quick-add card
-density)
+**Last updated:** 2026-06-23 (item 055 — clean up CI and agentic workflows)
 
 ## What Balance is
 
@@ -61,9 +60,10 @@ in the item 015 review; focused charts that aid the monthly routine are welcome.
   (amd64 + arm64) images → Docker Hub → the Raspberry Pi runs them. Merging a
   feature PR alone does **not** deploy; the release-PR merge is the deploy
   gate. Separately, each open PR (when its tests pass) publishes a
-  non-production **`pr-<number>`** preview image via `docker-pr-preview.yml` —
-  for trying a candidate build in a test environment before merge; it never
-  pushes `latest`/semver (item 020).
+  non-production preview image under a single rolling **`pr-latest`** tag via
+  `docker-pr-preview.yml` — for trying a candidate build in a test environment
+  before merge; each PR push overwrites the tag (no per-PR/per-SHA pile-up) and
+  it never pushes `latest`/semver (items 020, 055).
 
 ## Domain model (backend)
 
@@ -176,6 +176,7 @@ order reflects the maintainer's item 015 review (PR preview image first):
 
 | Date | Item | Repos |
 |---|---|---|
+| 2026-06-23 | Clean up CI/preview workflows + tighten agent prompts (item 055) | backend (CI+docs), frontend (CI) |
 | 2026-06-23 | Tighten budget wizard quick-add card density (item 050) | frontend, backend (bookkeeping) |
 | 2026-06-18 | Collapse non-due recurring expenses in the budget wizard (item 040) | frontend, backend (bookkeeping) |
 | 2026-06-17 | Wizard item modal buttons clear the iPhone home indicator (item 030) | frontend, backend (bookkeeping) |
