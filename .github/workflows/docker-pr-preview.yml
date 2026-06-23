@@ -1,9 +1,11 @@
 name: PR Preview Image
 
-# Builds and pushes a per-PR Docker image tagged `pr-<number>` so a candidate
-# build can be deployed to the test environment before it is merged. This never
-# touches the versioned/`latest` tags — those remain release-please's job (see
-# release.yml). See README "Delivery pipeline" for how the tags are used.
+# Builds and pushes a single rolling `pr-latest` Docker image so the current PR
+# candidate can be deployed to the test environment before it is merged. Using
+# one moving tag (instead of per-PR/per-SHA tags) keeps Docker Hub uncluttered —
+# each push overwrites `pr-latest`. This never touches the versioned/`latest`
+# tags — those remain release-please's job (see release.yml). See README
+# "Delivery pipeline" for how the tag is used.
 
 on:
   pull_request:
@@ -84,11 +86,9 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: axelnyman/balance-backend
-          # `type=ref,event=pr` -> pr-<number> (branch-name agnostic).
-          # `type=sha` adds a short-SHA tag for traceability. No semver/latest.
+          # Single rolling tag — each PR push overwrites `pr-latest`. No
+          # per-PR/per-SHA tags (they only clutter Docker Hub), no semver/latest.
           tags: |
-            type=ref,event=pr
-            type=sha
             type=raw,value=pr-latest
 
       - name: Build and push Docker image
