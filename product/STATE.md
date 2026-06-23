@@ -6,8 +6,8 @@
 > `CHANGELOG.md` (generated — never hand-edit), and `.claude/thoughts/` in
 > both repos for engineering research and plans.
 
-**Last updated:** 2026-06-18 (item 040 — collapse non-due recurring expenses in
-the budget wizard)
+**Last updated:** 2026-06-23 (item 050 — tighten budget wizard quick-add card
+density)
 
 ## What Balance is
 
@@ -110,7 +110,10 @@ Money is `BigDecimal` / `NUMERIC(19,2)` everywhere. Flyway migrations V1–V4
 - `/budgets/new` — 5-step wizard; copy-from-last-budget; due templates grouped
   with "add all due"; non-due recurring templates are tucked behind a
   "Show other recurring expenses (N)" collapsible on the expenses step
-  (item 040); create requires balance = 0.
+  (item 040); create requires balance = 0. Recurring quick-add cards are a
+  single compact row (name + amount + add) with the bank account deferred until
+  the item is added — set from the template default and editable afterwards —
+  and tighter padding at `md+` so more fit on desktop (item 050).
 - `/budgets/:id` — income/expenses/savings sections with add/edit/delete
   modals (UNLOCKED only); summary with balance bar; lock/unlock/delete
   actions; link to the todo page when locked. On UNLOCKED budgets a
@@ -152,13 +155,12 @@ Money is `BigDecimal` / `NUMERIC(19,2)` everywhere. Flyway migrations V1–V4
   only `done/` is a real subdir. Treat "the backlog" as the `NNN-*.md` files in
   `product/` until the docs are reconciled.
 
-## Open backlog (as of 2026-06-18)
+## Open backlog (as of 2026-06-23)
 
 Specs live directly in `product/` (filename `NNN-slug.md`, lowest number =
 highest priority). Item 015 scoped six raw feature ideas into these; priority
 order reflects the maintainer's item 015 review (PR preview image first):
 
-- `050` tighter wizard density / smaller desktop quick-add cards (frontend, M)
 - `060` near-real-time refresh to sync two open sessions (frontend, S)
 - `070a–070e` **savings goals** (split: backend foundation → goals pages →
   budget linking on lock → manual-balance reallocation → progress/predictions).
@@ -174,6 +176,7 @@ order reflects the maintainer's item 015 review (PR preview image first):
 
 | Date | Item | Repos |
 |---|---|---|
+| 2026-06-23 | Tighten budget wizard quick-add card density (item 050) | frontend, backend (bookkeeping) |
 | 2026-06-18 | Collapse non-due recurring expenses in the budget wizard (item 040) | frontend, backend (bookkeeping) |
 | 2026-06-17 | Wizard item modal buttons clear the iPhone home indicator (item 030) | frontend, backend (bookkeeping) |
 | 2026-06-17 | Per-PR `pr-<number>` Docker preview-image workflows (item 020) | backend (CI+docs), frontend (CI+docs) |
