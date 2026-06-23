@@ -4,6 +4,8 @@ name: Run Tests
 # redundant (the PR already passed) and only burns CI minutes, so there is no
 # push trigger — release.yml owns the merge-to-main path.
 on:
+  push:
+    branches: [ main ]
   pull_request:
     branches: [ main ]
 
