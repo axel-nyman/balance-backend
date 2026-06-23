@@ -1,0 +1,17 @@
+# Clean up CI and agentic workflows
+
+- **ID:** 055-workflow-cleanup
+- **Scope:** frontend & backend
+- **Size:** S (≤ half a day)
+
+## Why
+
+Certain GitHub actions could be improved on when they're triggered and how they're configured. docker images pile up quickly in docker hub etc.
+
+## What
+
+Change the PR actions (both repos) to only run when the PR is opened or changed. Certain workflows are also run on merge which isn't needed.
+
+Change the PR image build/push workflow (both repos) to only push pr-latest. I don't need any more granularity than that, and the extra tags ("pr-xx", "sha...") just clutter the repo on docker hub. If there's an easy fix for automatically cleaning up old images from docker hub you could add that to this PR as well, so that only the latest few images are stored under pr-latest.
+
+Slightly modify the agent prompts under /product in backend to spend more focus on research and doing more focused code edits. The last few PRs in my mind has been slightly too "verbose" in the code edits. Also, don't be too verbose in doing these edits.
