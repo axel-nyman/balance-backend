@@ -6,7 +6,7 @@
 > `CHANGELOG.md` (generated — never hand-edit), and `.claude/thoughts/` in
 > both repos for engineering research and plans.
 
-**Last updated:** 2026-06-24 (item 070a — savings-goals backend foundation)
+**Last updated:** 2026-06-24 (item 070b — savings-goals frontend pages)
 
 ## What Balance is
 
@@ -145,6 +145,14 @@ tables).
   from any expense row, with one-click add (item 010).
 - `/budgets/:id/todo` — progress bar; TRANSFER/PAYMENT items with optimistic
   checkbox toggling.
+- `/goals` — card grid of active savings goals (name, allocated/target progress
+  bar, backing accounts, completed badge); "new goal" opens a create modal with
+  an optional initial allocation seeded from an account's unallocated money
+  (item 070b).
+- `/goals/:id` — goal summary + progress, per-account allocation breakdown, and
+  edit / assign-money (capped at unallocated) / archive actions. Archive offers
+  the `releaseToBalance` choice (free the earmark, or also spend it and reduce
+  backing balances). Archived goals render read-only (item 070b).
 
 ## Conventions that matter
 
@@ -188,12 +196,13 @@ Specs live directly in `product/` (filename `NNN-slug.md`, lowest number =
 highest priority). Item 015 scoped six raw feature ideas into these; priority
 order reflects the maintainer's item 015 review (PR preview image first):
 
-- `070b–070e` **savings goals** (remaining parts: goals pages →
-  budget linking on lock → manual-balance reallocation → progress/predictions).
-  `070a` (backend foundation: entities, allocation ledger + append-only
-  history, CRUD, archive-with-release) is **done** (2026-06-24) — `070b` is the
-  next gate. `070e` adds progress visualizations (charts are in scope — see the
-  non-goals note above).
+- `070c–070e` **savings goals** (remaining parts: budget-savings ↔ goal linking
+  on lock → manual-balance reallocation → progress/predictions). `070a` (backend
+  foundation) and `070b` (frontend goals pages: list, detail, create/edit/
+  assign/archive) are **done** (2026-06-24) — `070c` is the next gate. `070e`
+  adds progress visualizations (charts are in scope — see the non-goals note
+  above), including surfacing the `GoalAllocationChange` history (already
+  fetchable via `GET /{id}/history`; 070b wired the hook but no UI yet).
 
 ## Recently completed
 
@@ -202,6 +211,7 @@ order reflects the maintainer's item 015 review (PR preview image first):
 
 | Date | Item | Repos |
 |---|---|---|
+| 2026-06-24 | Savings-goals frontend pages: list, detail, create/edit/assign/archive (item 070b) | frontend, backend (bookkeeping) |
 | 2026-06-24 | Savings-goals backend foundation: entities, allocation ledger + history, CRUD, archive (item 070a) | backend |
 | 2026-06-23 | Near-real-time cross-device refresh via React Query polling (item 060) | frontend, backend (bookkeeping) |
 | 2026-06-23 | Clean up CI/preview workflows + tighten agent prompts (item 055) | backend (CI+docs), frontend (CI) |
