@@ -12,11 +12,18 @@ public final class BankAccountExtensions {
     }
 
     public static BankAccountResponse toResponse(BankAccount bankAccount) {
+        return toResponse(bankAccount, BigDecimal.ZERO);
+    }
+
+    public static BankAccountResponse toResponse(BankAccount bankAccount, BigDecimal allocatedAmount) {
+        BigDecimal allocated = allocatedAmount != null ? allocatedAmount : BigDecimal.ZERO;
         return new BankAccountResponse(
                 bankAccount.getId(),
                 bankAccount.getName(),
                 bankAccount.getDescription(),
                 bankAccount.getCurrentBalance(),
+                allocated,
+                bankAccount.getCurrentBalance().subtract(allocated),
                 bankAccount.getCreatedAt(),
                 bankAccount.getUpdatedAt()
         );

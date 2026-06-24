@@ -8,7 +8,10 @@ import org.example.axelnyman.main.domain.model.BudgetExpense;
 import org.example.axelnyman.main.domain.model.BudgetIncome;
 import org.example.axelnyman.main.domain.model.BudgetSavings;
 import org.example.axelnyman.main.domain.model.BudgetStatus;
+import org.example.axelnyman.main.domain.model.GoalAllocation;
+import org.example.axelnyman.main.domain.model.GoalAllocationChange;
 import org.example.axelnyman.main.domain.model.RecurringExpense;
+import org.example.axelnyman.main.domain.model.SavingsGoal;
 import org.example.axelnyman.main.domain.model.TodoItem;
 import org.example.axelnyman.main.domain.model.TodoList;
 import org.springframework.data.domain.Page;
@@ -139,4 +142,32 @@ public interface IDataService {
     void deleteBalanceHistoryByBudgetId(UUID budgetId);
 
     List<Budget> findLockedBudgetsUsingRecurringExpense(UUID recurringExpenseId, UUID excludeBudgetId);
+
+    // Bank Account batch lookup
+    List<BankAccount> getBankAccountsByIds(List<UUID> ids);
+
+    // Savings Goal operations (item 070a)
+    SavingsGoal saveSavingsGoal(SavingsGoal savingsGoal);
+
+    Optional<SavingsGoal> getSavingsGoalById(UUID id);
+
+    List<SavingsGoal> getActiveSavingsGoals();
+
+    // Goal Allocation operations (item 070a)
+    GoalAllocation saveGoalAllocation(GoalAllocation goalAllocation);
+
+    void deleteGoalAllocation(GoalAllocation goalAllocation);
+
+    Optional<GoalAllocation> getGoalAllocation(UUID savingsGoalId, UUID bankAccountId);
+
+    List<GoalAllocation> getGoalAllocationsByGoalId(UUID savingsGoalId);
+
+    BigDecimal sumAllocationsByBankAccountId(UUID bankAccountId);
+
+    List<Object[]> sumAllocationsGroupedByBankAccount();
+
+    // Goal Allocation Change history operations (item 070a)
+    GoalAllocationChange saveGoalAllocationChange(GoalAllocationChange change);
+
+    List<GoalAllocationChange> getGoalAllocationChangesByGoalId(UUID savingsGoalId);
 }

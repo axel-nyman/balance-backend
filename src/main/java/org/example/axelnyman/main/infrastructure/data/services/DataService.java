@@ -8,11 +8,17 @@ import org.example.axelnyman.main.domain.model.BudgetExpense;
 import org.example.axelnyman.main.domain.model.BudgetIncome;
 import org.example.axelnyman.main.domain.model.BudgetSavings;
 import org.example.axelnyman.main.domain.model.BudgetStatus;
+import org.example.axelnyman.main.domain.model.GoalAllocation;
+import org.example.axelnyman.main.domain.model.GoalAllocationChange;
 import org.example.axelnyman.main.domain.model.RecurringExpense;
+import org.example.axelnyman.main.domain.model.SavingsGoal;
 import org.example.axelnyman.main.domain.model.TodoItem;
 import org.example.axelnyman.main.domain.model.TodoList;
 import org.example.axelnyman.main.infrastructure.data.context.BalanceHistoryRepository;
 import org.example.axelnyman.main.infrastructure.data.context.BankAccountRepository;
+import org.example.axelnyman.main.infrastructure.data.context.GoalAllocationChangeRepository;
+import org.example.axelnyman.main.infrastructure.data.context.GoalAllocationRepository;
+import org.example.axelnyman.main.infrastructure.data.context.SavingsGoalRepository;
 import org.example.axelnyman.main.infrastructure.data.context.BudgetExpenseRepository;
 import org.example.axelnyman.main.infrastructure.data.context.BudgetIncomeRepository;
 import org.example.axelnyman.main.infrastructure.data.context.BudgetRepository;
@@ -39,6 +45,9 @@ public class DataService implements IDataService {
     private final BudgetSavingsRepository budgetSavingsRepository;
     private final TodoListRepository todoListRepository;
     private final TodoItemRepository todoItemRepository;
+    private final SavingsGoalRepository savingsGoalRepository;
+    private final GoalAllocationRepository goalAllocationRepository;
+    private final GoalAllocationChangeRepository goalAllocationChangeRepository;
 
     public DataService(BankAccountRepository bankAccountRepository,
                       BalanceHistoryRepository balanceHistoryRepository,
@@ -48,7 +57,10 @@ public class DataService implements IDataService {
                       BudgetExpenseRepository budgetExpenseRepository,
                       BudgetSavingsRepository budgetSavingsRepository,
                       TodoListRepository todoListRepository,
-                      TodoItemRepository todoItemRepository) {
+                      TodoItemRepository todoItemRepository,
+                      SavingsGoalRepository savingsGoalRepository,
+                      GoalAllocationRepository goalAllocationRepository,
+                      GoalAllocationChangeRepository goalAllocationChangeRepository) {
         this.bankAccountRepository = bankAccountRepository;
         this.balanceHistoryRepository = balanceHistoryRepository;
         this.recurringExpenseRepository = recurringExpenseRepository;
@@ -58,6 +70,9 @@ public class DataService implements IDataService {
         this.budgetSavingsRepository = budgetSavingsRepository;
         this.todoListRepository = todoListRepository;
         this.todoItemRepository = todoItemRepository;
+        this.savingsGoalRepository = savingsGoalRepository;
+        this.goalAllocationRepository = goalAllocationRepository;
+        this.goalAllocationChangeRepository = goalAllocationChangeRepository;
     }
 
     @Override
@@ -339,5 +354,71 @@ public class DataService implements IDataService {
             java.util.UUID recurringExpenseId,
             java.util.UUID excludeBudgetId) {
         return budgetRepository.findLockedBudgetsUsingRecurringExpense(recurringExpenseId, excludeBudgetId);
+    }
+
+    // Bank Account batch lookup
+    @Override
+    public java.util.List<BankAccount> getBankAccountsByIds(java.util.List<java.util.UUID> ids) {
+        return bankAccountRepository.findAllById(ids);
+    }
+
+    // Savings Goal operations (item 070a)
+    @Override
+    public SavingsGoal saveSavingsGoal(SavingsGoal savingsGoal) {
+        return savingsGoalRepository.save(savingsGoal);
+    }
+
+    @Override
+    public java.util.Optional<SavingsGoal> getSavingsGoalById(java.util.UUID id) {
+        return savingsGoalRepository.findById(id)
+                .filter(goal -> goal.getDeletedAt() == null);
+    }
+
+    @Override
+    public java.util.List<SavingsGoal> getActiveSavingsGoals() {
+        return savingsGoalRepository.findAllByStatusAndDeletedAtIsNullOrderByCreatedAtDesc(
+                org.example.axelnyman.main.domain.model.GoalStatus.ACTIVE);
+    }
+
+    // Goal Allocation operations (item 070a)
+    @Override
+    public GoalAllocation saveGoalAllocation(GoalAllocation goalAllocation) {
+        return goalAllocationRepository.save(goalAllocation);
+    }
+
+    @Override
+    public void deleteGoalAllocation(GoalAllocation goalAllocation) {
+        goalAllocationRepository.delete(goalAllocation);
+    }
+
+    @Override
+    public java.util.Optional<GoalAllocation> getGoalAllocation(java.util.UUID savingsGoalId, java.util.UUID bankAccountId) {
+        return goalAllocationRepository.findBySavingsGoalIdAndBankAccountId(savingsGoalId, bankAccountId);
+    }
+
+    @Override
+    public java.util.List<GoalAllocation> getGoalAllocationsByGoalId(java.util.UUID savingsGoalId) {
+        return goalAllocationRepository.findAllBySavingsGoalId(savingsGoalId);
+    }
+
+    @Override
+    public java.math.BigDecimal sumAllocationsByBankAccountId(java.util.UUID bankAccountId) {
+        return goalAllocationRepository.sumAmountByBankAccountId(bankAccountId);
+    }
+
+    @Override
+    public java.util.List<Object[]> sumAllocationsGroupedByBankAccount() {
+        return goalAllocationRepository.sumAmountGroupedByBankAccount();
+    }
+
+    // Goal Allocation Change history operations (item 070a)
+    @Override
+    public GoalAllocationChange saveGoalAllocationChange(GoalAllocationChange change) {
+        return goalAllocationChangeRepository.save(change);
+    }
+
+    @Override
+    public java.util.List<GoalAllocationChange> getGoalAllocationChangesByGoalId(java.util.UUID savingsGoalId) {
+        return goalAllocationChangeRepository.findAllBySavingsGoalIdOrderByCreatedAtDesc(savingsGoalId);
     }
 }
