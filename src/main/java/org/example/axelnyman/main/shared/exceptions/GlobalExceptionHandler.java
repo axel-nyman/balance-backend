@@ -206,6 +206,27 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 
+    @ExceptionHandler(SavingsGoalNotFoundException.class)
+    public ResponseEntity<Object> handleSavingsGoalNotFoundException(SavingsGoalNotFoundException ex) {
+        Map<String, String> errorResponse = new HashMap<>();
+        errorResponse.put("error", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+    }
+
+    @ExceptionHandler(SavingsGoalArchivedException.class)
+    public ResponseEntity<Object> handleSavingsGoalArchivedException(SavingsGoalArchivedException ex) {
+        Map<String, String> errorResponse = new HashMap<>();
+        errorResponse.put("error", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
+    @ExceptionHandler(InsufficientUnallocatedFundsException.class)
+    public ResponseEntity<Object> handleInsufficientUnallocatedFundsException(InsufficientUnallocatedFundsException ex) {
+        Map<String, String> errorResponse = new HashMap<>();
+        errorResponse.put("error", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Object> handleIllegalArgumentException(IllegalArgumentException ex) {
         Map<String, String> errorResponse = new HashMap<>();

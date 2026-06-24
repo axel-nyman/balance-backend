@@ -29,6 +29,8 @@ public class BankAccountDtos {
             String name,
             String description,
             BigDecimal currentBalance,
+            BigDecimal allocatedAmount,
+            BigDecimal unallocatedAmount,
             LocalDateTime createdAt,
             LocalDateTime updatedAt
     ) {}

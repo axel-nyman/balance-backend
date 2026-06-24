@@ -6,6 +6,7 @@ import org.example.axelnyman.main.domain.dtos.BalanceHistoryDtos.*;
 import org.example.axelnyman.main.domain.dtos.BankAccountDtos.*;
 import org.example.axelnyman.main.domain.dtos.BudgetDtos.*;
 import org.example.axelnyman.main.domain.dtos.RecurringExpenseDtos.*;
+import org.example.axelnyman.main.domain.dtos.SavingsGoalDtos.*;
 import org.example.axelnyman.main.domain.dtos.TodoDtos.*;
 import org.example.axelnyman.main.domain.extensions.BalanceHistoryExtensions;
 import org.example.axelnyman.main.domain.extensions.BankAccountExtensions;
@@ -14,11 +15,17 @@ import org.example.axelnyman.main.domain.extensions.BudgetExtensions;
 import org.example.axelnyman.main.domain.extensions.BudgetIncomeExtensions;
 import org.example.axelnyman.main.domain.extensions.BudgetSavingsExtensions;
 import org.example.axelnyman.main.domain.extensions.RecurringExpenseExtensions;
+import org.example.axelnyman.main.domain.extensions.SavingsGoalExtensions;
 import org.example.axelnyman.main.domain.extensions.TodoExtensions;
 import org.example.axelnyman.main.domain.model.BalanceHistory;
 import org.example.axelnyman.main.domain.model.BalanceHistorySource;
 import org.example.axelnyman.main.domain.model.BankAccount;
 import org.example.axelnyman.main.domain.model.Budget;
+import org.example.axelnyman.main.domain.model.GoalAllocation;
+import org.example.axelnyman.main.domain.model.GoalAllocationChange;
+import org.example.axelnyman.main.domain.model.GoalAllocationChangeSource;
+import org.example.axelnyman.main.domain.model.GoalStatus;
+import org.example.axelnyman.main.domain.model.SavingsGoal;
 import org.example.axelnyman.main.domain.model.BudgetExpense;
 import org.example.axelnyman.main.domain.model.BudgetIncome;
 import org.example.axelnyman.main.domain.model.BudgetSavings;
@@ -44,7 +51,10 @@ import org.example.axelnyman.main.shared.exceptions.DuplicateBudgetException;
 import org.example.axelnyman.main.shared.exceptions.DuplicateRecurringExpenseException;
 import org.example.axelnyman.main.shared.exceptions.FutureDateException;
 import org.example.axelnyman.main.shared.exceptions.InvalidYearException;
+import org.example.axelnyman.main.shared.exceptions.InsufficientUnallocatedFundsException;
 import org.example.axelnyman.main.shared.exceptions.NotMostRecentBudgetException;
+import org.example.axelnyman.main.shared.exceptions.SavingsGoalArchivedException;
+import org.example.axelnyman.main.shared.exceptions.SavingsGoalNotFoundException;
 import org.example.axelnyman.main.shared.exceptions.TodoItemNotFoundException;
 import org.example.axelnyman.main.shared.exceptions.TodoListNotFoundException;
 import org.example.axelnyman.main.shared.exceptions.UnlockedBudgetExistsException;
@@ -105,9 +115,13 @@ public class DomainService implements IDomainService {
                 .map(BankAccount::getCurrentBalance)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        Map<UUID, BigDecimal> allocatedByAccount = dataService.sumAllocationsGroupedByBankAccount().stream()
+                .collect(Collectors.toMap(row -> (UUID) row[0], row -> (BigDecimal) row[1]));
+
         List<BankAccountResponse> accountResponses = accounts.stream()
                 .sorted(Comparator.comparing(BankAccount::getName))
-                .map(BankAccountExtensions::toResponse)
+                .map(account -> BankAccountExtensions.toResponse(
+                        account, allocatedByAccount.getOrDefault(account.getId(), BigDecimal.ZERO)))
                 .toList();
 
         return new BankAccountListResponse(totalBalance, accounts.size(), accountResponses);
@@ -139,7 +153,8 @@ public class DomainService implements IDomainService {
         // Save (updatedAt auto-updated by JPA auditing)
         BankAccount updatedAccount = dataService.saveBankAccount(account);
 
-        return BankAccountExtensions.toResponse(updatedAccount);
+        return BankAccountExtensions.toResponse(updatedAccount,
+                dataService.sumAllocationsByBankAccountId(id));
     }
 
     @Override
@@ -1148,5 +1163,172 @@ public class DomainService implements IDomainService {
 
         // Return mapped DTO
         return TodoExtensions.toItemResponse(updatedTodoItem, fromAccount, toAccount);
+    }
+
+    // ==================== Savings Goals (item 070a) ====================
+
+    @Override
+    @Transactional
+    public SavingsGoalResponse createSavingsGoal(CreateSavingsGoalRequest request) {
+        SavingsGoal goal = dataService.saveSavingsGoal(SavingsGoalExtensions.toEntity(request));
+
+        if (request.allocations() != null) {
+            for (SeedAllocationRequest seed : request.allocations()) {
+                applyAllocation(goal.getId(), requireActiveAccount(seed.bankAccountId()),
+                        seed.amount(), GoalAllocationChangeSource.MANUAL);
+            }
+        }
+
+        return buildGoalResponse(goal);
+    }
+
+    @Override
+    public SavingsGoalListResponse getAllSavingsGoals() {
+        List<SavingsGoalResponse> goals = dataService.getActiveSavingsGoals().stream()
+                .map(this::buildGoalResponse)
+                .toList();
+        return new SavingsGoalListResponse(goals.size(), goals);
+    }
+
+    @Override
+    public SavingsGoalResponse getSavingsGoal(UUID id) {
+        return buildGoalResponse(requireGoal(id));
+    }
+
+    @Override
+    public GoalAllocationHistoryResponse getSavingsGoalHistory(UUID id) {
+        SavingsGoal goal = requireGoal(id);
+
+        List<GoalAllocationChange> changes = dataService.getGoalAllocationChangesByGoalId(goal.getId());
+        Map<UUID, String> accountNames = accountNames(changes.stream()
+                .map(GoalAllocationChange::getBankAccountId).distinct().toList());
+
+        return new GoalAllocationHistoryResponse(goal.getId(), changes.stream()
+                .map(change -> SavingsGoalExtensions.toResponse(change, accountNames))
+                .toList());
+    }
+
+    @Override
+    @Transactional
+    public SavingsGoalResponse updateSavingsGoal(UUID id, UpdateSavingsGoalRequest request) {
+        SavingsGoal goal = requireActiveGoal(id);
+        goal.setName(request.name());
+        goal.setTargetAmount(request.targetAmount());
+        goal.setEndDate(request.endDate());
+        return buildGoalResponse(dataService.saveSavingsGoal(goal));
+    }
+
+    @Override
+    @Transactional
+    public SavingsGoalResponse allocateToGoal(UUID id, AllocateRequest request) {
+        SavingsGoal goal = requireActiveGoal(id);
+        applyAllocation(goal.getId(), requireActiveAccount(request.bankAccountId()),
+                request.amount(), GoalAllocationChangeSource.MANUAL);
+        return buildGoalResponse(goal);
+    }
+
+    @Override
+    @Transactional
+    public SavingsGoalResponse archiveSavingsGoal(UUID id, ArchiveRequest request) {
+        SavingsGoal goal = requireActiveGoal(id);
+
+        for (GoalAllocation allocation : dataService.getGoalAllocationsByGoalId(goal.getId())) {
+            BigDecimal freed = allocation.getAmount();
+
+            if (request.releaseToBalance()) {
+                BankAccount account = requireActiveAccount(allocation.getBankAccountId());
+                BigDecimal newBalance = account.getCurrentBalance().subtract(freed);
+                account.setCurrentBalance(newBalance);
+                dataService.saveBankAccount(account);
+                dataService.saveBalanceHistory(new BalanceHistory(
+                        account.getId(), newBalance, freed.negate(),
+                        "Released to balance on archiving goal: " + goal.getName(),
+                        BalanceHistorySource.AUTOMATIC, null, LocalDate.now()));
+            }
+
+            dataService.saveGoalAllocationChange(new GoalAllocationChange(
+                    goal.getId(), allocation.getBankAccountId(), freed.negate(), BigDecimal.ZERO,
+                    GoalAllocationChangeSource.ARCHIVE));
+            dataService.deleteGoalAllocation(allocation);
+        }
+
+        goal.setStatus(GoalStatus.ARCHIVED);
+        goal.setArchivedAt(LocalDateTime.now());
+        return buildGoalResponse(dataService.saveSavingsGoal(goal));
+    }
+
+    /**
+     * Sets an account's allocation to a goal to an absolute {@code newAmount},
+     * enforcing the per-account invariant (active allocations may not exceed the
+     * account's balance) and appending a {@link GoalAllocationChange} ledger row.
+     * Setting the amount to zero removes the allocation. A no-op change writes
+     * nothing.
+     */
+    private void applyAllocation(UUID goalId, BankAccount account, BigDecimal newAmount,
+                                 GoalAllocationChangeSource source) {
+        Optional<GoalAllocation> existing = dataService.getGoalAllocation(goalId, account.getId());
+        BigDecimal oldAmount = existing.map(GoalAllocation::getAmount).orElse(BigDecimal.ZERO);
+        BigDecimal changeAmount = newAmount.subtract(oldAmount);
+
+        if (changeAmount.compareTo(BigDecimal.ZERO) == 0) {
+            return;
+        }
+
+        // sumAllocationsByBankAccountId already includes oldAmount, so the
+        // projected total after this change is currentSum + changeAmount.
+        BigDecimal projectedTotal = dataService.sumAllocationsByBankAccountId(account.getId()).add(changeAmount);
+        if (projectedTotal.compareTo(account.getCurrentBalance()) > 0) {
+            throw new InsufficientUnallocatedFundsException(
+                    "Allocation would exceed the unallocated balance of account: " + account.getName());
+        }
+
+        if (newAmount.compareTo(BigDecimal.ZERO) == 0) {
+            existing.ifPresent(dataService::deleteGoalAllocation);
+        } else if (existing.isPresent()) {
+            existing.get().setAmount(newAmount);
+            dataService.saveGoalAllocation(existing.get());
+        } else {
+            dataService.saveGoalAllocation(new GoalAllocation(goalId, account.getId(), newAmount));
+        }
+
+        dataService.saveGoalAllocationChange(new GoalAllocationChange(
+                goalId, account.getId(), changeAmount, newAmount, source));
+    }
+
+    private SavingsGoalResponse buildGoalResponse(SavingsGoal goal) {
+        List<GoalAllocation> allocations = dataService.getGoalAllocationsByGoalId(goal.getId());
+        Map<UUID, String> accountNames = accountNames(allocations.stream()
+                .map(GoalAllocation::getBankAccountId).toList());
+        return SavingsGoalExtensions.toResponse(goal, allocations, accountNames);
+    }
+
+    private Map<UUID, String> accountNames(List<UUID> ids) {
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        return dataService.getBankAccountsByIds(ids).stream()
+                .collect(Collectors.toMap(BankAccount::getId, BankAccount::getName));
+    }
+
+    private SavingsGoal requireGoal(UUID id) {
+        return dataService.getSavingsGoalById(id)
+                .orElseThrow(() -> new SavingsGoalNotFoundException("Savings goal not found with id: " + id));
+    }
+
+    private SavingsGoal requireActiveGoal(UUID id) {
+        SavingsGoal goal = requireGoal(id);
+        if (goal.getStatus() == GoalStatus.ARCHIVED) {
+            throw new SavingsGoalArchivedException("Cannot modify an archived savings goal");
+        }
+        return goal;
+    }
+
+    private BankAccount requireActiveAccount(UUID id) {
+        BankAccount account = dataService.getBankAccountById(id)
+                .orElseThrow(() -> new BankAccountNotFoundException("Bank account not found with id: " + id));
+        if (account.getDeletedAt() != null) {
+            throw new BankAccountNotFoundException("Bank account not found with id: " + id);
+        }
+        return account;
     }
 }

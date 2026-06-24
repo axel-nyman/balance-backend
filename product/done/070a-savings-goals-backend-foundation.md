@@ -165,3 +165,31 @@ choice in the PR.
   invariant stays front-of-mind.
 - The `GoalAllocationChange` design intentionally mirrors `BalanceHistory`
   (per-entity, append-only, `source` enum) so it's familiar and easy to query.
+
+## Completion notes
+
+**Completed:** 2026-06-24 · **PR:** balance-backend (branch `claude/youthful-hamilton-mvvsdd`)
+
+Backend-only foundation for the savings-goals epic. All acceptance criteria met; full suite green (345 tests, +19 new in `SavingsGoalIntegrationTest`).
+
+### What shipped
+- Entities `SavingsGoal`, `GoalAllocation`, `GoalAllocationChange` (+ enums `GoalStatus`, `GoalAllocationChangeSource`), Flyway `V5__add_savings_goals.sql` (additive — three new tables, FKs, indexes, unique `(savings_goal_id, bank_account_id)`).
+- 3-layer wiring: repositories, `SavingsGoalDtos`, `SavingsGoalExtensions`, `IDataService`/`DataService`, `IDomainService`/`DomainService`, `SavingsGoalController`.
+- Endpoints: `POST /api/savings-goals` (optional seed allocations), `GET /api/savings-goals` (active only, with summary), `GET /{id}`, `GET /{id}/history` (newest first, archived included), `PUT /{id}`, `POST /{id}/allocations`, `POST /{id}/archive`.
+- New exceptions via `GlobalExceptionHandler`: `SavingsGoalNotFoundException` (404), `SavingsGoalArchivedException` (400), `InsufficientUnallocatedFundsException` (409).
+
+### Interpretation decisions
+- **Unallocated figures:** chose the spec's preferred option — additive fields `allocatedAmount` / `unallocatedAmount` on `BankAccountResponse` (backward compatible; the accounts page wants them). The list endpoint computes them with one grouped sum query; create/update compute per-account.
+- **Allocation amount is absolute (a set, not a delta).** `POST /{id}/allocations` sets the account's earmark to the given amount; `0` removes the allocation. Mirrors the "adjust rather than duplicate" rule. A no-op (unchanged amount) writes no history row.
+- **`GoalAllocation` has no soft delete** — it is current-state; removal is a hard delete. The append-only `GoalAllocationChange` ledger is the history of record and survives archiving and removal.
+- **Invariant** (`sum(active allocations on account) ≤ currentBalance`) enforced in `DomainService.applyAllocation` and returns **409 Conflict**.
+- **Archive** rejects already-archived goals (400); `releaseToBalance=true` reduces each backing account's balance and writes an `AUTOMATIC` `BalanceHistory` row atomically; `false` leaves balances untouched. Both record `ARCHIVE` ledger rows. Empty/absent archive body defaults to `releaseToBalance=false`.
+- Mutations (update/allocate/archive) are rejected on archived goals; `GET /{id}` and `/{id}/history` work for archived goals.
+
+### Limitations / follow-ups (not in 070a scope)
+- `getAllSavingsGoals` fetches allocations per goal (N+1). Dataset is a household's handful of goals; left simple. Batch later if it ever matters.
+- Bank-account deletion is not yet allocation-aware (an account with active allocations can still be soft-deleted, orphaning allocation rows). Out of scope here; worth a guard in a later part.
+- No allocation-count cap or end-date validation beyond `targetAmount > 0`.
+
+### Verification
+- Test image note: Docker Hub / ECR layer blobs (CloudFront) are blocked by the egress policy in this environment; pulled `postgres:15-alpine` via `mirror.gcr.io` and tagged it locally, and ran with `TESTCONTAINERS_RYUK_DISABLED=true` (ryuk image is likewise blocked). `./mvnw test` → `Tests run: 345, Failures: 0, Errors: 0` BUILD SUCCESS.

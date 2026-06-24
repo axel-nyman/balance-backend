@@ -6,7 +6,7 @@
 > `CHANGELOG.md` (generated — never hand-edit), and `.claude/thoughts/` in
 > both repos for engineering research and plans.
 
-**Last updated:** 2026-06-23 (item 060 — near-real-time cross-device refresh)
+**Last updated:** 2026-06-24 (item 070a — savings-goals backend foundation)
 
 ## What Balance is
 
@@ -82,15 +82,38 @@ in the item 015 review; focused charts that aid the monthly routine are welcome.
 - **TodoList** (1:1 with budget; created on lock, deleted on unlock) →
   **TodoItem** — `TRANSFER` (from → to account) or `PAYMENT` (from account),
   status `PENDING|COMPLETED`, completedAt.
+- **SavingsGoal** (item 070a) — name, optional targetAmount, optional endDate,
+  status `ACTIVE|ARCHIVED`, archivedAt. Soft delete. "Completed" is derived
+  (allocated ≥ target), not stored.
+- **GoalAllocation** — earmark of a bank account's `currentBalance` for a goal
+  (`amount > 0`); at most one active row per `(goal, account)` — adjusted, not
+  duplicated. No soft delete: removed (hard-deleted) when set to zero or on
+  archive. Invariant: an account's total active allocations may never exceed
+  its `currentBalance`. Allocations do **not** move money (except archive with
+  `releaseToBalance=true`).
+- **GoalAllocationChange** — append-only ledger (mirrors `BalanceHistory`):
+  signed `changeAmount`, `resultingAmount`, `source`
+  `MANUAL|BUDGET_LOCK|BALANCE_REALLOCATION|ARCHIVE`. Written on every
+  allocation change; preserved across archiving and removal.
 
-Money is `BigDecimal` / `NUMERIC(19,2)` everywhere. Flyway migrations V1–V4
-(V4 dropped the deprecated `last_used_date` column).
+Money is `BigDecimal` / `NUMERIC(19,2)` everywhere. Flyway migrations V1–V5
+(V4 dropped the deprecated `last_used_date` column; V5 added the savings-goals
+tables).
 
 ## API surface (summary — details in Swagger)
 
 - `/api/bank-accounts` — POST, GET (includes totalBalance); `/{id}` PUT,
   DELETE; `/{id}/balance` POST (manual update); `/{id}/balance-history` GET
-  (paginated).
+  (paginated). `BankAccountResponse` now also carries `allocatedAmount` /
+  `unallocatedAmount` (additive, item 070a).
+- `/api/savings-goals` (item 070a) — POST (optional seed allocations from
+  accounts' unallocated money), GET (active goals with per-goal summary:
+  totalAllocated, progress, backing accounts; archived excluded); `/{id}` GET
+  (per-account breakdown), PUT (name/target/endDate); `/{id}/history` GET
+  (allocation-change ledger, newest first, available for archived goals);
+  `/{id}/allocations` POST (set an account's earmark; zero removes it);
+  `/{id}/archive` POST (`releaseToBalance` boolean — frees allocations, and
+  when true also reduces backing balances with `AUTOMATIC` balance-history).
 - `/api/budgets` — POST, GET (with totals); `/{id}` GET, DELETE; `/{id}/lock`
   PUT; `/{id}/unlock` PUT; `/{budgetId}/income|expenses|savings` POST and
   `…/{itemId}` PUT, DELETE; `/{budgetId}/todo-list` GET;
@@ -165,12 +188,12 @@ Specs live directly in `product/` (filename `NNN-slug.md`, lowest number =
 highest priority). Item 015 scoped six raw feature ideas into these; priority
 order reflects the maintainer's item 015 review (PR preview image first):
 
-- `070a–070e` **savings goals** (split: backend foundation → goals pages →
+- `070b–070e` **savings goals** (remaining parts: goals pages →
   budget linking on lock → manual-balance reallocation → progress/predictions).
-  Sizeable new domain — `070a` is the gate. `070a` now includes an append-only
-  allocation-history ledger and an archive option that can release allocations
-  back to account balances; `070e` adds progress visualizations (charts are in
-  scope — see the non-goals note above).
+  `070a` (backend foundation: entities, allocation ledger + append-only
+  history, CRUD, archive-with-release) is **done** (2026-06-24) — `070b` is the
+  next gate. `070e` adds progress visualizations (charts are in scope — see the
+  non-goals note above).
 
 ## Recently completed
 
@@ -179,6 +202,7 @@ order reflects the maintainer's item 015 review (PR preview image first):
 
 | Date | Item | Repos |
 |---|---|---|
+| 2026-06-24 | Savings-goals backend foundation: entities, allocation ledger + history, CRUD, archive (item 070a) | backend |
 | 2026-06-23 | Near-real-time cross-device refresh via React Query polling (item 060) | frontend, backend (bookkeeping) |
 | 2026-06-23 | Clean up CI/preview workflows + tighten agent prompts (item 055) | backend (CI+docs), frontend (CI) |
 | 2026-06-23 | Tighten budget wizard quick-add card density (item 050) | frontend, backend (bookkeeping) |

@@ -4,6 +4,7 @@ import org.example.axelnyman.main.domain.dtos.BalanceHistoryDtos.*;
 import org.example.axelnyman.main.domain.dtos.BankAccountDtos.*;
 import org.example.axelnyman.main.domain.dtos.BudgetDtos.*;
 import org.example.axelnyman.main.domain.dtos.RecurringExpenseDtos.*;
+import org.example.axelnyman.main.domain.dtos.SavingsGoalDtos.*;
 import org.example.axelnyman.main.domain.dtos.TodoDtos.*;
 
 import java.util.UUID;
@@ -80,4 +81,19 @@ public interface IDomainService {
 
     // Todo Item operations (Story 28)
     TodoItemResponse updateTodoItemStatus(UUID budgetId, UUID todoItemId, UpdateTodoItemRequest request);
+
+    // Savings Goal operations (item 070a)
+    SavingsGoalResponse createSavingsGoal(CreateSavingsGoalRequest request);
+
+    SavingsGoalListResponse getAllSavingsGoals();
+
+    SavingsGoalResponse getSavingsGoal(UUID id);
+
+    GoalAllocationHistoryResponse getSavingsGoalHistory(UUID id);
+
+    SavingsGoalResponse updateSavingsGoal(UUID id, UpdateSavingsGoalRequest request);
+
+    SavingsGoalResponse allocateToGoal(UUID id, AllocateRequest request);
+
+    SavingsGoalResponse archiveSavingsGoal(UUID id, ArchiveRequest request);
 }
