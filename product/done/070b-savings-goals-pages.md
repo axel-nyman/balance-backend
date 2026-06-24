@@ -81,3 +81,32 @@ Add a **Goals** page reachable from the sidebar:
 
 - Depends on 070a's chosen shape for unallocated figures (account fields vs
   endpoint) — read the merged 070a before building.
+
+## Completion notes
+
+**Completed:** 2026-06-24 · **PR:** balance-frontend (branch `claude/peaceful-hamilton-n37ctb`) · bookkeeping in balance-backend (branch `claude/youthful-hamilton-n37ctb`)
+
+Frontend for the savings-goals epic, built on the merged 070a backend. All acceptance criteria met; full frontend suite green (59 files, 527 tests, +13 new across `GoalsPage.test.tsx` and `GoalDetailPage.test.tsx`). `npm run lint` (0 errors), `npx tsc --noEmit`, and `npm run build` all pass.
+
+### What shipped (frontend)
+- Sidebar "Goals" entry (Target icon); routes `/goals` and `/goals/:id` under the app layout (`routes.ts`, `App.tsx`, `Sidebar.tsx`).
+- `GoalsPage`: card grid of active goals (`GoalGrid` + `GoalCard`) with name, allocated/target progress bar, backing-account summary, "Complete" badge; loading skeletons, error state, empty state — all reusing the shared components.
+- `GoalModal` (create/edit, RHF + Zod): name, optional target, optional end date; create-only optional initial allocation from an account's unallocated money with a client-side cap (backend still enforces the invariant).
+- `GoalDetailPage`: progress summary, per-account allocation breakdown, and edit / assign-money / archive actions. Archived goals render read-only (actions hidden, "Archived" badge).
+- `AllocateModal`: manual assign — sets an account's earmark (absolute), pre-filled with the current allocation, capped at `unallocated + current earmark`; zero removes.
+- `ArchiveGoalDialog`: surfaces the 070a `releaseToBalance` choice via a plainly-phrased checkbox ("Also spend the money" → reduce backing balances; default off → just free the earmark).
+- API/data: `api/goals.ts`, `useGoals/useGoal/useGoalHistory/useCreateGoal/useUpdateGoal/useAllocateToGoal/useArchiveGoal`, `queryKeys.goals` factory. Goal mutations invalidate both goals and accounts (unallocated figures change).
+- Types: additive `allocatedAmount?` / `unallocatedAmount?` on `BankAccount` plus the savings-goal DTO types, mirroring 070a's `BankAccountResponse` and `SavingsGoalDtos`.
+
+### Interpretation decisions
+- **Unallocated source:** read 070a's additive `allocatedAmount` / `unallocatedAmount` on the accounts response (not a dedicated endpoint).
+- **Made the two new `BankAccount` fields optional** in the TS type. They are always present on `/api/bank-accounts`, but a couple of places (e.g. `TodoItemList`) build partial account objects; optional avoids fabricating allocation data there and keeps the diff additive. Goals code defaults them with `?? 0`.
+- **Assign is absolute "set" semantics** (matches the 070a `POST /{id}/allocations` contract): the field is the new earmark for that account, pre-filled with the existing amount; zero removes. Client cap = `account.unallocatedAmount + thisGoal'sCurrentEarmarkOnAccount`.
+- **Create-time seed** offers a single optional account+amount (the backend accepts a list); richer multi-account seeding deferred — manual assign on the detail page covers it.
+- **`GoalAllocationChange` history** is fetched by a hook (`useGoalHistory`) but not yet surfaced in the UI — the detail-page visualizations are 070e's scope. History/predictions intentionally out of scope here.
+
+### Deploy ordering / note
+- Frontend-only change; depends on the 070a backend being **deployed** (release-please PR balance-backend#55 merged) before this frontend is deployed, or the Goals page will 404 against production. The backend is already merged to `main`; this is a merge-ordering note for the maintainer, not a code dependency.
+
+### Not done (later parts, by design)
+- Budget-savings ↔ goal linking on lock (070c), manual-balance reallocation (070d), and progress/velocity visualizations + the allocation-history view (070e).
