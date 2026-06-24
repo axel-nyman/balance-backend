@@ -81,7 +81,8 @@ public final class BudgetExtensions {
                 savings.getId(),
                 savings.getName(),
                 savings.getAmount(),
-                toBankAccountSummarySimple(savings.getBankAccount())
+                toBankAccountSummarySimple(savings.getBankAccount()),
+                savings.getSavingsGoalId()
         );
     }
 

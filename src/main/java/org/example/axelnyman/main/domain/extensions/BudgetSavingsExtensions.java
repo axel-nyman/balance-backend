@@ -25,17 +25,20 @@ public final class BudgetSavingsExtensions {
                 savings.getName(),
                 savings.getAmount(),
                 bankAccountSummary,
+                savings.getSavingsGoalId(),
                 savings.getCreatedAt(),
                 savings.getUpdatedAt()
         );
     }
 
     public static BudgetSavings toEntity(CreateBudgetSavingsRequest request, UUID budgetId) {
-        return new BudgetSavings(
+        BudgetSavings savings = new BudgetSavings(
                 budgetId,
                 request.bankAccountId(),
                 request.name(),
                 request.amount()
         );
+        savings.setSavingsGoalId(request.savingsGoalId());
+        return savings;
     }
 }

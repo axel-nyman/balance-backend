@@ -30,6 +30,9 @@ public final class BudgetSavings {
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal amount;
 
+    @Column
+    private UUID savingsGoalId;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -97,6 +100,14 @@ public final class BudgetSavings {
 
     public void setAmount(BigDecimal amount) {
         this.amount = amount;
+    }
+
+    public UUID getSavingsGoalId() {
+        return savingsGoalId;
+    }
+
+    public void setSavingsGoalId(UUID savingsGoalId) {
+        this.savingsGoalId = savingsGoalId;
     }
 
     public LocalDateTime getCreatedAt() {
