@@ -36,7 +36,7 @@ disagree, trust STATE.md — and verify in code before relying on either.
 
 ### 2. Check in-flight work (GitHub, both repos)
 List open PRs, then:
-- If a previous routine PR has **failing CI or "changes requested"**, fixing
+- If a previous routine PR has **failing CI or comments requesting changes"**, fixing
   it *is* this run's work. Rebase on main if needed, push fixes to its branch,
   and stop after that.
 - Note which backlog items already have open PRs (bodies contain
