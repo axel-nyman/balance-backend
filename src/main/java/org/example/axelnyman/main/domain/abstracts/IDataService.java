@@ -162,6 +162,8 @@ public interface IDataService {
 
     List<GoalAllocation> getGoalAllocationsByGoalId(UUID savingsGoalId);
 
+    List<GoalAllocation> getGoalAllocationsByBankAccountId(UUID bankAccountId);
+
     BigDecimal sumAllocationsByBankAccountId(UUID bankAccountId);
 
     List<Object[]> sumAllocationsGroupedByBankAccount();

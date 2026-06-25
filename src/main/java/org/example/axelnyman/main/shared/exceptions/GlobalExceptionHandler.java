@@ -227,6 +227,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
     }
 
+    @ExceptionHandler(AllocationReallocationRequiredException.class)
+    public ResponseEntity<Object> handleAllocationReallocationRequiredException(
+            AllocationReallocationRequiredException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getDetail());
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Object> handleIllegalArgumentException(IllegalArgumentException ex) {
         Map<String, String> errorResponse = new HashMap<>();

@@ -6,7 +6,7 @@
 > `CHANGELOG.md` (generated — never hand-edit), and `.claude/thoughts/` in
 > both repos for engineering research and plans.
 
-**Last updated:** 2026-06-25 (item 070c — budget savings ↔ goal linking on lock)
+**Last updated:** 2026-06-25 (item 070d — manual balance changes reconcile goal allocations)
 
 ## What Balance is
 
@@ -42,7 +42,11 @@ in the item 015 review; focused charts that aid the monthly routine are welcome.
    goal (a `BUDGET_LOCK` allocation), inside the same lock transaction.
 3. **Execute** — during the month the couple works through the todo list
    (optimistic checkboxes) and records manual balance corrections with date +
-   comment as reality drifts.
+   comment as reality drifts. A manual balance change on a goal-backed account
+   keeps earmarks truthful (item 070d): a decrease that over-allocates auto-reduces
+   a single backing goal (or prompts for a split across several), and an increase
+   optionally earmarks straight onto a goal — all inside the balance-update
+   transaction, writing `BALANCE_REALLOCATION` history.
 4. **Correct** — unlock fully reverses a lock: balances restored, todo list
    deleted, recurring-template stamps reverted, and goal earmarks made on lock
    removed. Only the most recent budget can be locked; one unlocked budget
@@ -110,7 +114,11 @@ tables; V6 added the nullable `budget_savings.savings_goal_id` FK).
 - `/api/bank-accounts` — POST, GET (includes totalBalance); `/{id}` PUT,
   DELETE; `/{id}/balance` POST (manual update); `/{id}/balance-history` GET
   (paginated). `BankAccountResponse` now also carries `allocatedAmount` /
-  `unallocatedAmount` (additive, item 070a).
+  `unallocatedAmount` (additive, item 070a). The balance POST accepts an optional
+  signed `reallocation` list to reconcile goal earmarks (item 070d): a single-goal
+  deficit auto-reduces; a multi-goal deficit without a split returns `409` with the
+  conflict detail; an increase can earmark money straight onto goals. The response
+  carries additive `allocationAdjustments`. Legacy request shape still works.
 - `/api/savings-goals` (item 070a) — POST (optional seed allocations from
   accounts' unallocated money), GET (active goals with per-goal summary:
   totalAllocated, progress, backing accounts; archived excluded); `/{id}` GET
@@ -133,7 +141,10 @@ tables; V6 added the nullable `budget_savings.savings_goal_id` FK).
 
 - `/accounts` — totals header; account list; create/edit/delete via modals;
   update-balance modal (date + comment); balance-history drawer with infinite
-  scroll.
+  scroll. On a goal-backed account the update-balance modal reconciles earmarks
+  (item 070d): an increase offers a pre-checked-by-default checkbox (single goal,
+  fully allocated) or per-goal distribution inputs (multiple); a multi-goal deficit
+  opens a split dialog; an automatic single-goal reduction is shown via a toast.
 - `/recurring-expenses` — template list with due-status indicator; CRUD modals.
 - `/budgets` — budget card grid (status + totals); "new budget" leads to the
   wizard (one unlocked budget at a time — enforced in UI and backend).
@@ -211,13 +222,12 @@ Specs live directly in `product/` (filename `NNN-slug.md`, lowest number =
 highest priority). Item 015 scoped six raw feature ideas into these; priority
 order reflects the maintainer's item 015 review (PR preview image first):
 
-- `070d–070e` **savings goals** (remaining parts: manual-balance reallocation →
-  progress/predictions). `070a` (backend foundation), `070b` (frontend goals
-  pages) and `070c` (budget-savings ↔ goal linking on lock/unlock) are **done** —
-  `070d` is the next gate. `070e` adds progress visualizations (charts are in
-  scope — see the non-goals note above), including surfacing the
-  `GoalAllocationChange` history (already fetchable via `GET /{id}/history`;
-  070b wired the hook but no UI yet).
+- `070e` **savings goals — progress/predictions** (the last part). `070a` (backend
+  foundation), `070b` (frontend goals pages), `070c` (budget-savings ↔ goal linking
+  on lock/unlock) and `070d` (manual-balance reallocation) are **done** — `070e` is
+  the next gate. `070e` adds progress visualizations (charts are in scope — see the
+  non-goals note above), including surfacing the `GoalAllocationChange` history
+  (already fetchable via `GET /{id}/history`; 070b wired the hook but no UI yet).
 
   Both the budget-detail savings modal **and** the create-budget wizard savings
   step expose the goal selector, so a saving can be linked to a goal either
@@ -231,6 +241,7 @@ order reflects the maintainer's item 015 review (PR preview image first):
 
 | Date | Item | Repos |
 |---|---|---|
+| 2026-06-25 | Manual balance changes reconcile goal allocations: auto single-goal deficit, multi-goal split (409), increase earmark (item 070d) | backend, frontend |
 | 2026-06-25 | Savings-goals budget linking: savings lines link to goals, earmark on lock / reverse on unlock (item 070c) | backend, frontend |
 | 2026-06-24 | Savings-goals frontend pages: list, detail, create/edit/assign/archive (item 070b) | frontend, backend (bookkeeping) |
 | 2026-06-24 | Savings-goals backend foundation: entities, allocation ledger + history, CRUD, archive (item 070a) | backend |

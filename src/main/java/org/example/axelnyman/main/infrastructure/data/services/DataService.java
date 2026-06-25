@@ -402,6 +402,11 @@ public class DataService implements IDataService {
     }
 
     @Override
+    public java.util.List<GoalAllocation> getGoalAllocationsByBankAccountId(java.util.UUID bankAccountId) {
+        return goalAllocationRepository.findAllByBankAccountId(bankAccountId);
+    }
+
+    @Override
     public java.math.BigDecimal sumAllocationsByBankAccountId(java.util.UUID bankAccountId) {
         return goalAllocationRepository.sumAmountByBankAccountId(bankAccountId);
     }
