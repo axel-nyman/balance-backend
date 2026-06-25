@@ -143,7 +143,9 @@ tables; V6 added the nullable `budget_savings.savings_goal_id` FK).
   (item 040); create requires balance = 0. Recurring quick-add cards are a
   single compact row (name + amount + add) with the bank account deferred until
   the item is added — set from the template default and editable afterwards —
-  and tighter padding at `md+` so more fit on desktop (item 050).
+  and tighter padding at `md+` so more fit on desktop (item 050). The savings
+  step also has an optional per-line **Goal** selector (item 070c), so a saving
+  can be earmarked toward a goal during budget creation.
 - `/budgets/:id` — income/expenses/savings sections with add/edit/delete
   modals (UNLOCKED only); summary with balance bar; lock/unlock/delete
   actions; link to the todo page when locked. The savings add/edit modal has an
@@ -174,6 +176,10 @@ tables; V6 added the nullable `budget_savings.savings_goal_id` FK).
   expenses, todo list) background-poll every 30s (`POLL_INTERVAL` in
   `src/lib/query-config.ts`) so two open sessions stay in near-real-time sync;
   polling pauses when the tab is hidden (item 060). Reads only — no push/SSE.
+  The React Query default `staleTime` is **0** (item 070c follow-up), so every
+  navigation/mount and window focus also refetches — cheap on a two-user LAN and
+  it keeps views (e.g. goals after a budget lock) current between polls. Lock/
+  unlock additionally invalidate the goals queries directly.
 - Soft deletes everywhere; migrations are additive/backward compatible; never
   edit an applied migration; never hand-edit `CHANGELOG.md`.
 - Engineering conventions live in each repo's `CLAUDE.md` (3-layer
@@ -213,9 +219,10 @@ order reflects the maintainer's item 015 review (PR preview image first):
   `GoalAllocationChange` history (already fetchable via `GET /{id}/history`;
   070b wired the hook but no UI yet).
 
-  **Follow-up noted in 070c:** the budget **wizard** savings step does not yet
-  expose the goal selector (only the budget-detail savings modal does); linking
-  during initial budget creation is a small future item.
+  Both the budget-detail savings modal **and** the create-budget wizard savings
+  step expose the goal selector, so a saving can be linked to a goal either
+  during initial budget creation or afterwards (the wizard selector was added
+  in the 070c frontend follow-up).
 
 ## Recently completed
 

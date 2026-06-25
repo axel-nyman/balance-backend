@@ -134,9 +134,17 @@ Vitest tests (+5 new on `SavingsItemModal`), and build.
 - **Multiple savings lines to the same goal+account are aggregated** into one
   allocation change per lock/unlock (one ledger row each), not one per line.
 
-### Deferred (not blocking the acceptance criteria)
-- The **budget wizard** savings step does not yet expose the goal selector —
-  the create-budget flow would need the wizard state + per-line plumbing
-  extended. Goals can be linked by editing a savings line on the budget-detail
-  page after the budget is created. The hard acceptance criterion (the
-  budget-detail savings modal) is fully met. Worth a small follow-up item.
+### Follow-up — wizard selector + faster refetch (added after maintainer review)
+On review of the frontend PR the maintainer asked for the wizard selector and
+quicker goal refresh, so both were folded into the 070c frontend PR:
+- The **budget wizard** savings step now exposes the optional **Goal** selector
+  too (desktop inline table + the mobile edit sheet), with a shared `GoalSelect`
+  component reused by the budget-detail modal and both wizard surfaces.
+  Copy-from-last-budget preserves the link; the review step and mobile card
+  surface the linked goal. So a saving can be earmarked toward a goal during
+  initial budget creation, not only afterwards.
+- **Faster refetch:** locking/unlocking a budget now invalidates the goals
+  queries directly (lock earmarks goal-linked savings), and the React Query
+  default `staleTime` was lowered to `0` so navigation/mount and window focus
+  refetch everywhere — cheap on a two-user LAN, and the goals pages reflect a
+  lock immediately instead of waiting for the 30s poll.
