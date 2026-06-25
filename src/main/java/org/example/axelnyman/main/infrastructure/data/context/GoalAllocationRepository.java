@@ -16,6 +16,8 @@ public interface GoalAllocationRepository extends JpaRepository<GoalAllocation, 
 
     List<GoalAllocation> findAllBySavingsGoalId(UUID savingsGoalId);
 
+    List<GoalAllocation> findAllByBankAccountId(UUID bankAccountId);
+
     Optional<GoalAllocation> findBySavingsGoalIdAndBankAccountId(UUID savingsGoalId, UUID bankAccountId);
 
     @Query("SELECT COALESCE(SUM(ga.amount), 0) FROM GoalAllocation ga WHERE ga.bankAccountId = :bankAccountId")

@@ -38,6 +38,7 @@ import org.example.axelnyman.main.domain.model.TodoList;
 import org.example.axelnyman.main.domain.model.TransferPlan;
 import org.example.axelnyman.main.domain.utils.TransferCalculationUtils;
 import org.example.axelnyman.main.shared.exceptions.AccountLinkedToBudgetException;
+import org.example.axelnyman.main.shared.exceptions.AllocationReallocationRequiredException;
 import org.example.axelnyman.main.shared.exceptions.BackdatedBalanceUpdateException;
 import org.example.axelnyman.main.shared.exceptions.BankAccountNotFoundException;
 import org.example.axelnyman.main.shared.exceptions.BudgetAlreadyLockedException;
@@ -67,6 +68,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -187,40 +189,200 @@ public class DomainService implements IDomainService {
             );
         }
 
-        // Store previous balance
         BigDecimal previousBalance = account.getCurrentBalance();
-
-        // Calculate change amount (new - previous)
         BigDecimal changeAmount = request.newBalance().subtract(previousBalance);
 
-        // Update account's current balance
-        account.setCurrentBalance(request.newBalance());
+        // Reconcile the change against any savings-goal earmarks on this account
+        // (item 070d). All allocation writes and the balance write happen in this
+        // single transaction, so a rejected reallocation leaves nothing changed.
+        List<GoalAllocation> allocations = dataService.getGoalAllocationsByBankAccountId(id);
+        List<AllocationAdjustment> adjustments;
 
-        // Save updated account
-        BankAccount updatedAccount = dataService.saveBankAccount(account);
+        if (changeAmount.signum() >= 0) {
+            // Increase (or no change): raise the balance first, then earmark some/all
+            // of the increase toward goals if requested — validated against the
+            // already-raised balance so the invariant (allocations <= balance) holds.
+            persistBalanceChange(account, request, changeAmount);
+            adjustments = hasReallocation(request)
+                    ? applyIncreaseReallocation(account, allocations, changeAmount, request.reallocation())
+                    : List.of();
+        } else {
+            // Decrease: reconcile allocations before lowering the balance, so each
+            // reduction is checked against the still-valid higher balance and the
+            // account is never transiently over-allocated.
+            adjustments = reconcileDeficit(account, allocations, request);
+            persistBalanceChange(account, request, changeAmount);
+        }
 
-        // Create balance history entry with MANUAL source - use explicit changeDate
-        BalanceHistory historyEntry = new BalanceHistory(
-                updatedAccount.getId(),
-                request.newBalance(),
-                changeAmount,
-                request.comment(),
-                BalanceHistorySource.MANUAL,
-                null,  // budgetId is null for manual updates
-                request.date()  // explicit changeDate from request
-        );
-
-        dataService.saveBalanceHistory(historyEntry);
-
-        // Return response with previous and new balance info
         return new BalanceUpdateResponse(
-                updatedAccount.getId(),
-                updatedAccount.getName(),
-                updatedAccount.getCurrentBalance(),
+                account.getId(),
+                account.getName(),
+                account.getCurrentBalance(),
                 previousBalance,
                 changeAmount,
-                request.date()
+                request.date(),
+                adjustments
         );
+    }
+
+    private boolean hasReallocation(UpdateBalanceRequest request) {
+        return request.reallocation() != null && !request.reallocation().isEmpty();
+    }
+
+    private void persistBalanceChange(BankAccount account, UpdateBalanceRequest request, BigDecimal changeAmount) {
+        account.setCurrentBalance(request.newBalance());
+        dataService.saveBankAccount(account);
+        dataService.saveBalanceHistory(new BalanceHistory(
+                account.getId(), request.newBalance(), changeAmount,
+                request.comment(), BalanceHistorySource.MANUAL, null, request.date()));
+    }
+
+    /**
+     * Decrease path: when the new balance no longer covers the account's total
+     * earmarks, bring allocations back under the balance. Within slack does
+     * nothing; a single backing goal is auto-reduced by the deficit; two or more
+     * goals require an explicit split (a 409 conflict otherwise). A supplied split
+     * must use non-positive amounts summing exactly to the deficit, leaving no
+     * allocation below zero.
+     */
+    private List<AllocationAdjustment> reconcileDeficit(BankAccount account,
+            List<GoalAllocation> allocations, UpdateBalanceRequest request) {
+        if (allocations.isEmpty()) {
+            if (hasReallocation(request)) {
+                throw new IllegalArgumentException("Reallocation references goals that do not back this account");
+            }
+            return List.of();
+        }
+
+        BigDecimal totalAllocated = allocations.stream()
+                .map(GoalAllocation::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal deficit = totalAllocated.subtract(request.newBalance());
+
+        if (deficit.signum() <= 0) {
+            if (hasReallocation(request)) {
+                throw new IllegalArgumentException("No goal reallocation is required for this balance change");
+            }
+            return List.of();
+        }
+
+        if (hasReallocation(request)) {
+            return applyDeficitSplit(account, allocations, deficit, request.reallocation());
+        }
+
+        if (allocations.size() == 1) {
+            // Cap the reduction at the allocation amount so it never goes below zero
+            // (a negative new balance would otherwise produce a deficit > allocation).
+            GoalAllocation only = allocations.get(0);
+            return List.of(reduceAllocation(account, only, deficit.min(only.getAmount())));
+        }
+
+        throw new AllocationReallocationRequiredException(
+                buildConflict(account, request.newBalance(), totalAllocated, deficit, allocations));
+    }
+
+    private List<AllocationAdjustment> applyDeficitSplit(BankAccount account, List<GoalAllocation> allocations,
+            BigDecimal deficit, List<ReallocationEntry> entries) {
+        requireNoDuplicates(entries);
+        Map<UUID, GoalAllocation> byGoal = allocations.stream()
+                .collect(Collectors.toMap(GoalAllocation::getSavingsGoalId, a -> a));
+
+        BigDecimal totalReduction = BigDecimal.ZERO;
+        for (ReallocationEntry entry : entries) {
+            if (entry.changeBy().signum() > 0) {
+                throw new IllegalArgumentException(
+                        "Reallocation for a balance decrease must use non-positive amounts");
+            }
+            GoalAllocation allocation = byGoal.get(entry.savingsGoalId());
+            if (allocation == null) {
+                throw new IllegalArgumentException(
+                        "Reallocation references a goal that does not back this account: " + entry.savingsGoalId());
+            }
+            if (allocation.getAmount().add(entry.changeBy()).signum() < 0) {
+                throw new IllegalArgumentException("Reallocation would drive a goal allocation below zero");
+            }
+            totalReduction = totalReduction.add(entry.changeBy().negate());
+        }
+        if (totalReduction.compareTo(deficit) != 0) {
+            throw new IllegalArgumentException(
+                    "Reallocation reductions must sum to the required reduction of " + deficit.toPlainString());
+        }
+
+        List<AllocationAdjustment> adjustments = new ArrayList<>();
+        for (ReallocationEntry entry : entries) {
+            if (entry.changeBy().signum() == 0) {
+                continue;
+            }
+            adjustments.add(reduceAllocation(account, byGoal.get(entry.savingsGoalId()), entry.changeBy().negate()));
+        }
+        return adjustments;
+    }
+
+    /**
+     * Increase path: earmark requested amounts toward goals. Additions must be
+     * non-negative and sum to no more than the increase; each named goal must be
+     * active. {@link #applyAllocation} enforces the per-account invariant against
+     * the already-raised balance.
+     */
+    private List<AllocationAdjustment> applyIncreaseReallocation(BankAccount account, List<GoalAllocation> allocations,
+            BigDecimal increase, List<ReallocationEntry> entries) {
+        requireNoDuplicates(entries);
+        Map<UUID, BigDecimal> currentByGoal = allocations.stream()
+                .collect(Collectors.toMap(GoalAllocation::getSavingsGoalId, GoalAllocation::getAmount));
+
+        BigDecimal totalAddition = BigDecimal.ZERO;
+        for (ReallocationEntry entry : entries) {
+            if (entry.changeBy().signum() < 0) {
+                throw new IllegalArgumentException(
+                        "Reallocation for a balance increase must use non-negative amounts");
+            }
+            totalAddition = totalAddition.add(entry.changeBy());
+        }
+        if (totalAddition.compareTo(increase) > 0) {
+            throw new IllegalArgumentException(
+                    "Reallocation additions may not exceed the balance increase of " + increase.toPlainString());
+        }
+
+        List<AllocationAdjustment> adjustments = new ArrayList<>();
+        for (ReallocationEntry entry : entries) {
+            if (entry.changeBy().signum() == 0) {
+                continue;
+            }
+            SavingsGoal goal = requireActiveGoal(entry.savingsGoalId());
+            BigDecimal resulting = currentByGoal.getOrDefault(goal.getId(), BigDecimal.ZERO).add(entry.changeBy());
+            applyAllocation(goal.getId(), account, resulting, GoalAllocationChangeSource.BALANCE_REALLOCATION);
+            adjustments.add(new AllocationAdjustment(goal.getId(), goal.getName(), entry.changeBy(), resulting));
+        }
+        return adjustments;
+    }
+
+    private AllocationAdjustment reduceAllocation(BankAccount account, GoalAllocation allocation, BigDecimal reduceBy) {
+        BigDecimal resulting = allocation.getAmount().subtract(reduceBy);
+        applyAllocation(allocation.getSavingsGoalId(), account, resulting,
+                GoalAllocationChangeSource.BALANCE_REALLOCATION);
+        return new AllocationAdjustment(allocation.getSavingsGoalId(), goalName(allocation.getSavingsGoalId()),
+                reduceBy.negate(), resulting);
+    }
+
+    private ReallocationConflictResponse buildConflict(BankAccount account, BigDecimal newBalance,
+            BigDecimal totalAllocated, BigDecimal deficit, List<GoalAllocation> allocations) {
+        List<ReallocationConflictGoal> goals = allocations.stream()
+                .map(a -> new ReallocationConflictGoal(
+                        a.getSavingsGoalId(), goalName(a.getSavingsGoalId()), a.getAmount()))
+                .toList();
+        return new ReallocationConflictResponse(
+                "Balance decrease leaves the account over-allocated across multiple goals; a split is required",
+                account.getId(), account.getName(), newBalance, totalAllocated, deficit, goals);
+    }
+
+    private void requireNoDuplicates(List<ReallocationEntry> entries) {
+        long distinct = entries.stream().map(ReallocationEntry::savingsGoalId).distinct().count();
+        if (distinct != entries.size()) {
+            throw new IllegalArgumentException("Reallocation lists the same goal more than once");
+        }
+    }
+
+    private String goalName(UUID goalId) {
+        return dataService.getSavingsGoalById(goalId).map(SavingsGoal::getName).orElse(null);
     }
 
     @Override
