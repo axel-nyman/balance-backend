@@ -171,10 +171,16 @@ tables; V6 added the nullable `budget_savings.savings_goal_id` FK).
   bar, backing accounts, completed badge); "new goal" opens a create modal with
   an optional initial allocation seeded from an account's unallocated money
   (item 070b).
-- `/goals/:id` — goal summary + progress, per-account allocation breakdown, and
-  edit / assign-money (capped at unallocated) / archive actions. Archive offers
-  the `releaseToBalance` choice (free the earmark, or also spend it and reduce
-  backing balances). Archived goals render read-only (item 070b).
+- `/goals/:id` — goal summary + progress (allocated/target/remaining), per-account
+  allocation breakdown, and edit / assign-money (capped at unallocated) / archive
+  actions. A "Progress over time" card (item 070e) shows a dependency-free
+  inline-SVG chart of allocated-over-time (reconstructed from the
+  `GET /{id}/history` ledger), a velocity-based projected completion date (or a
+  "not enough history yet" fallback), and — for goals with an end date — the
+  required monthly contribution vs. current pace (ahead/behind). Forward-looking
+  text is shown for ACTIVE goals only. Archive offers the `releaseToBalance`
+  choice (free the earmark, or also spend it and reduce backing balances).
+  Archived goals render read-only (item 070b).
 
 ## Conventions that matter
 
@@ -216,23 +222,16 @@ tables; V6 added the nullable `budget_savings.savings_goal_id` FK).
   only `done/` is a real subdir. Treat "the backlog" as the `NNN-*.md` files in
   `product/` until the docs are reconciled.
 
-## Open backlog (as of 2026-06-23)
+## Open backlog (as of 2026-06-25)
 
 Specs live directly in `product/` (filename `NNN-slug.md`, lowest number =
-highest priority). Item 015 scoped six raw feature ideas into these; priority
-order reflects the maintainer's item 015 review (PR preview image first):
+highest priority).
 
-- `070e` **savings goals — progress/predictions** (the last part). `070a` (backend
-  foundation), `070b` (frontend goals pages), `070c` (budget-savings ↔ goal linking
-  on lock/unlock) and `070d` (manual-balance reallocation) are **done** — `070e` is
-  the next gate. `070e` adds progress visualizations (charts are in scope — see the
-  non-goals note above), including surfacing the `GoalAllocationChange` history
-  (already fetchable via `GET /{id}/history`; 070b wired the hook but no UI yet).
-
-  Both the budget-detail savings modal **and** the create-budget wizard savings
-  step expose the goal selector, so a saving can be linked to a goal either
-  during initial budget creation or afterwards (the wizard selector was added
-  in the 070c frontend follow-up).
+_Empty._ The savings-goals feature is complete: `070a` (backend foundation),
+`070b` (frontend goals pages), `070c` (budget-savings ↔ goal linking on
+lock/unlock), `070e` (progress/history chart + projections on the goal detail
+page) and `070d` (manual-balance reallocation) are all **done**. No specs are
+currently waiting in `product/`.
 
 ## Recently completed
 
@@ -242,6 +241,7 @@ order reflects the maintainer's item 015 review (PR preview image first):
 | Date | Item | Repos |
 |---|---|---|
 | 2026-06-25 | Manual balance changes reconcile goal allocations: auto single-goal deficit, multi-goal split (409), increase earmark (item 070d) | backend, frontend |
+| 2026-06-25 | Savings-goals progress: goal detail history chart, velocity projection & end-date required-contribution (item 070e) | frontend, backend (bookkeeping) |
 | 2026-06-25 | Savings-goals budget linking: savings lines link to goals, earmark on lock / reverse on unlock (item 070c) | backend, frontend |
 | 2026-06-24 | Savings-goals frontend pages: list, detail, create/edit/assign/archive (item 070b) | frontend, backend (bookkeeping) |
 | 2026-06-24 | Savings-goals backend foundation: entities, allocation ledger + history, CRUD, archive (item 070a) | backend |
