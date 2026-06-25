@@ -88,3 +88,52 @@ follow-up rather than expanding this item.
 
 - This is the lowest-priority slice of the savings-goals feature; the feature is
   fully usable after 070a–070d.
+
+## Completion notes
+
+- **Date:** 2026-06-25
+- **PRs:** balance-frontend (feature) + balance-backend (this `docs:` bookkeeping).
+  Frontend-only item — no backend code changed. Independent of the in-flight
+  070d PRs (070d touches the update-balance flow; 070e only reads the goal
+  detail page + the existing `GET /api/savings-goals/{id}/history` endpoint).
+- **Where it lives:** goal detail page (`/goals/:id`). New pure functions in
+  `src/lib/goal-projection.ts` (unit-tested in `goal-projection.test.ts`), a
+  dependency-free inline-SVG `GoalHistoryChart`, and a `GoalInsights` section
+  that composes the chart + projection + end-date assessment.
+
+### Interpretation decisions
+
+- **Velocity source.** The `GoalAllocationChange` ledger stores a per-account
+  `resultingAmount`, not the goal total, so velocity is reconstructed by
+  cumulatively summing the **signed `changeAmount`** deltas in chronological
+  order (`buildAllocationSeries`) — robust to multi-account goals. The ledger
+  is returned newest-first, so the series is sorted ascending first.
+- **"Enough history".** A pace is only inferred from **≥2 allocation changes
+  spanning ≥14 days** with a positive net trend (`MIN_HISTORY_DAYS`); otherwise
+  the UI shows "Not enough history yet" instead of a misleading guess. Velocity
+  = net growth between the first and last ledger points ÷ months between them.
+- **Projection anchor.** The projected completion date is `now + remaining /
+  velocity` (months converted at 30.4375 days/month). `now` is injected into the
+  pure functions for deterministic tests.
+- **Chart baseline.** The history chart prepends a synthetic `(goal.createdAt,
+  0 kr)` point so the line reads from zero; this is visual only and is excluded
+  from the velocity calculation (which uses real ledger events).
+- **Forward-looking text** (projection + required-contribution) is shown only
+  for **ACTIVE** goals; archived goals still render the history chart.
+- **No charting dependency.** A single goal-history view doesn't justify a new
+  runtime dependency (recharts etc.); rendered as plain `viewBox`-scaled SVG,
+  consistent with the minimal-diff guardrail.
+
+### Deviations / cut
+
+- The progress card shows **remaining-to-target**; the existing % already sits
+  beside the bar via `GoalProgress`, so it was not duplicated in the new stat.
+- No backend change was needed — the 070a `/history` endpoint was sufficient,
+  as the spec anticipated.
+
+### Verification
+
+- `npm run lint` → 0 errors (pre-existing warnings only)
+- `npx tsc --noEmit` → clean; `tsc -b && vite build` → success
+- `npm test -- --run` → 61 files, 566 tests passing (20 new pure-function unit
+  tests + 4 new goal-detail component tests)
