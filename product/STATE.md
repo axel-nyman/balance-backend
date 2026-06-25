@@ -6,7 +6,7 @@
 > `CHANGELOG.md` (generated — never hand-edit), and `.claude/thoughts/` in
 > both repos for engineering research and plans.
 
-**Last updated:** 2026-06-24 (item 070b — savings-goals frontend pages)
+**Last updated:** 2026-06-25 (item 070c — budget savings ↔ goal linking on lock)
 
 ## What Balance is
 
@@ -37,13 +37,16 @@ in the item 015 review; focused charts that aid the monthly routine are welcome.
    (TRANSFER items for the plan + PAYMENT items for manual expenses), applies
    the transfers to account balances, and writes AUTOMATIC balance-history
    entries. Recurring templates used in the budget get their last-used
-   month/year stamped, which drives their next due date.
+   month/year stamped, which drives their next due date. Any savings line
+   linked to a goal (item 070c) also earmarks that month's saving toward the
+   goal (a `BUDGET_LOCK` allocation), inside the same lock transaction.
 3. **Execute** — during the month the couple works through the todo list
    (optimistic checkboxes) and records manual balance corrections with date +
    comment as reality drifts.
 4. **Correct** — unlock fully reverses a lock: balances restored, todo list
-   deleted, recurring-template stamps reverted. Only the most recent budget
-   can be locked; one unlocked budget exists at a time (the working draft).
+   deleted, recurring-template stamps reverted, and goal earmarks made on lock
+   removed. Only the most recent budget can be locked; one unlocked budget
+   exists at a time (the working draft).
 
 ## System architecture
 
@@ -74,7 +77,9 @@ in the item 015 review; focused charts that aid the monthly routine are welcome.
   `UNLOCKED|LOCKED`, lockedAt. Soft delete (unlocked budgets only).
 - **BudgetIncome / BudgetExpense / BudgetSavings** — name, amount,
   bankAccount. Expense additionally: optional `recurringExpenseId` link,
-  `isManual` flag, `deductedAt`.
+  `isManual` flag, `deductedAt`. Savings additionally: optional
+  `savingsGoalId` (item 070c) — links the line to a goal so locking earmarks
+  that month's saving toward it and unlocking reverses it.
 - **RecurringExpense** — template: name, amount, interval
   `MONTHLY|QUARTERLY|BIANNUALLY|YEARLY`, isManual, optional default
   bankAccount; lastUsedBudgetId/Month/Year stamped on lock (due = last used +
@@ -96,9 +101,9 @@ in the item 015 review; focused charts that aid the monthly routine are welcome.
   `MANUAL|BUDGET_LOCK|BALANCE_REALLOCATION|ARCHIVE`. Written on every
   allocation change; preserved across archiving and removal.
 
-Money is `BigDecimal` / `NUMERIC(19,2)` everywhere. Flyway migrations V1–V5
+Money is `BigDecimal` / `NUMERIC(19,2)` everywhere. Flyway migrations V1–V6
 (V4 dropped the deprecated `last_used_date` column; V5 added the savings-goals
-tables).
+tables; V6 added the nullable `budget_savings.savings_goal_id` FK).
 
 ## API surface (summary — details in Swagger)
 
@@ -117,7 +122,9 @@ tables).
 - `/api/budgets` — POST, GET (with totals); `/{id}` GET, DELETE; `/{id}/lock`
   PUT; `/{id}/unlock` PUT; `/{budgetId}/income|expenses|savings` POST and
   `…/{itemId}` PUT, DELETE; `/{budgetId}/todo-list` GET;
-  `/{budgetId}/todo-list/items/{id}` PUT.
+  `/{budgetId}/todo-list/items/{id}` PUT. Savings create/update accept an
+  optional `savingsGoalId` (item 070c; additive, defaults to null) echoed back
+  on savings responses.
 - `/api/recurring-expenses` — POST, GET; `/{id}` GET, PUT, DELETE.
 - There is no `PUT /api/budgets/{id}` — month/year is not editable after
   creation (a possible future item; not yet specced).
@@ -139,7 +146,9 @@ tables).
   and tighter padding at `md+` so more fit on desktop (item 050).
 - `/budgets/:id` — income/expenses/savings sections with add/edit/delete
   modals (UNLOCKED only); summary with balance bar; lock/unlock/delete
-  actions; link to the todo page when locked. On UNLOCKED budgets a
+  actions; link to the todo page when locked. The savings add/edit modal has an
+  optional **Goal** selector (item 070c) and savings rows show the linked goal
+  (`account · goal`). On UNLOCKED budgets a
   "due recurring expenses not added" hint above the expenses section lists
   recurring templates due for the budget month or earlier that aren't linked
   from any expense row, with one-click add (item 010).
@@ -196,13 +205,17 @@ Specs live directly in `product/` (filename `NNN-slug.md`, lowest number =
 highest priority). Item 015 scoped six raw feature ideas into these; priority
 order reflects the maintainer's item 015 review (PR preview image first):
 
-- `070c–070e` **savings goals** (remaining parts: budget-savings ↔ goal linking
-  on lock → manual-balance reallocation → progress/predictions). `070a` (backend
-  foundation) and `070b` (frontend goals pages: list, detail, create/edit/
-  assign/archive) are **done** (2026-06-24) — `070c` is the next gate. `070e`
-  adds progress visualizations (charts are in scope — see the non-goals note
-  above), including surfacing the `GoalAllocationChange` history (already
-  fetchable via `GET /{id}/history`; 070b wired the hook but no UI yet).
+- `070d–070e` **savings goals** (remaining parts: manual-balance reallocation →
+  progress/predictions). `070a` (backend foundation), `070b` (frontend goals
+  pages) and `070c` (budget-savings ↔ goal linking on lock/unlock) are **done** —
+  `070d` is the next gate. `070e` adds progress visualizations (charts are in
+  scope — see the non-goals note above), including surfacing the
+  `GoalAllocationChange` history (already fetchable via `GET /{id}/history`;
+  070b wired the hook but no UI yet).
+
+  **Follow-up noted in 070c:** the budget **wizard** savings step does not yet
+  expose the goal selector (only the budget-detail savings modal does); linking
+  during initial budget creation is a small future item.
 
 ## Recently completed
 
@@ -211,6 +224,7 @@ order reflects the maintainer's item 015 review (PR preview image first):
 
 | Date | Item | Repos |
 |---|---|---|
+| 2026-06-25 | Savings-goals budget linking: savings lines link to goals, earmark on lock / reverse on unlock (item 070c) | backend, frontend |
 | 2026-06-24 | Savings-goals frontend pages: list, detail, create/edit/assign/archive (item 070b) | frontend, backend (bookkeeping) |
 | 2026-06-24 | Savings-goals backend foundation: entities, allocation ledger + history, CRUD, archive (item 070a) | backend |
 | 2026-06-23 | Near-real-time cross-device refresh via React Query polling (item 060) | frontend, backend (bookkeeping) |

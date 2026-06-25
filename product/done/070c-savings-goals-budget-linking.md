@@ -86,3 +86,57 @@ defaults to null.
 - This touches the most safety-critical flow (lock/unlock). Preserve the
   invariant that unlock restores pre-lock state **exactly** — now including goal
   allocations. No destructive migrations.
+
+## Completion notes
+
+**Completed:** 2026-06-25 · **PRs:** balance-backend (branch
+`claude/youthful-hamilton-wbbqb0`) + balance-frontend (branch
+`claude/peaceful-hamilton-wbbqb0`). Merge order: **backend first**.
+
+Backend full suite green (360 tests, +15 new in
+`BudgetSavingsGoalLinkIntegrationTest`). Frontend green: lint, `tsc`, 535
+Vitest tests (+5 new on `SavingsItemModal`), and build.
+
+### What shipped
+- **Backend:** `BudgetSavings` gains a nullable `savingsGoalId` (Flyway
+  `V6__add_savings_goal_id_to_budget_savings.sql` — additive nullable column +
+  FK to `savings_goals` + index). The add/update savings endpoints accept an
+  optional `savingsGoalId` (validated to reference an **active** goal — 404 if
+  missing, 400 if archived); `BudgetSavingsResponse` and the budget-detail
+  savings response carry it back. On **lock** each goal-linked savings line
+  earmarks its amount toward the goal on its account (summed per goal+account,
+  reusing the 070a `applyAllocation` so the invariant + `BUDGET_LOCK`
+  `GoalAllocationChange` ledger row come for free); on **unlock** that exact
+  contribution is reversed.
+- **Frontend:** the budget-detail savings add/edit modal
+  (`SavingsItemModal`) gets an optional **Goal** selector (None / pick an
+  active goal); the savings section sublabel shows the linked goal name
+  (`account · goal`). Omitting a goal sends no `savingsGoalId`, so existing
+  behaviour is unchanged.
+
+### Interpretation decisions
+- **Ordering (the documented invariant rule).** On lock the goal allocation
+  step runs **after** `updateBalancesForBudget`, so the savings money has
+  already credited the account; the new earmark is therefore always backed by
+  the just-added balance and the per-account invariant
+  (`Σ allocations ≤ currentBalance`) holds by construction. The
+  `InsufficientUnallocatedFundsException` check inside `applyAllocation` is kept
+  as a safety net — if it ever fired it would roll back the whole lock (the lock
+  is one `@Transactional`). Unlock reverses in the inverse order
+  (de-allocate, then restore balances).
+- **Reversal is delta-based and tolerant.** Unlock subtracts exactly each
+  linked line's amount from the current allocation, clamped at zero, and skips
+  allocations already gone. So a manual allocation made while the budget was
+  locked survives unlock, and a goal archived while locked is not resurrected.
+- **Archived/deleted goals are skipped on lock** (they no longer accept
+  allocations); the lock still succeeds. Linking is validated against active
+  goals at add/update time.
+- **Multiple savings lines to the same goal+account are aggregated** into one
+  allocation change per lock/unlock (one ledger row each), not one per line.
+
+### Deferred (not blocking the acceptance criteria)
+- The **budget wizard** savings step does not yet expose the goal selector —
+  the create-budget flow would need the wizard state + per-line plumbing
+  extended. Goals can be linked by editing a savings line on the budget-detail
+  page after the budget is created. The hard acceptance criterion (the
+  budget-detail savings modal) is fully met. Worth a small follow-up item.

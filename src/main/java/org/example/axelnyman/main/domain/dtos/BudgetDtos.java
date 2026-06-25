@@ -142,7 +142,9 @@ public class BudgetDtos {
             BigDecimal amount,
 
             @NotNull(message = "Bank account ID is required")
-            UUID bankAccountId
+            UUID bankAccountId,
+
+            UUID savingsGoalId
     ) {}
 
     public record BudgetSavingsResponse(
@@ -151,6 +153,7 @@ public class BudgetDtos {
             String name,
             BigDecimal amount,
             BankAccountSummary bankAccount,
+            UUID savingsGoalId,
             LocalDateTime createdAt,
             LocalDateTime updatedAt
     ) {}
@@ -164,7 +167,9 @@ public class BudgetDtos {
             BigDecimal amount,
 
             @NotNull(message = "Bank account ID is required")
-            UUID bankAccountId
+            UUID bankAccountId,
+
+            UUID savingsGoalId
     ) {}
 
     // ============================================
@@ -197,7 +202,8 @@ public class BudgetDtos {
             UUID id,
             String name,
             BigDecimal amount,
-            BankAccountSummarySimple bankAccount
+            BankAccountSummarySimple bankAccount,
+            UUID savingsGoalId
     ) {}
 
     public record BudgetDetailResponse(
