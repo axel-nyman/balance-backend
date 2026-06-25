@@ -709,6 +709,9 @@ public class DomainService implements IDomainService {
             throw new BankAccountNotFoundException("Bank account not found with id: " + request.bankAccountId());
         }
 
+        // Validate the optional savings-goal link (must reference an active goal)
+        requireActiveGoalIfPresent(request.savingsGoalId());
+
         // Create and save budget savings
         BudgetSavings budgetSavings = BudgetSavingsExtensions.toEntity(request, budgetId);
         BudgetSavings savedSavings = dataService.saveBudgetSavings(budgetSavings);
@@ -746,10 +749,14 @@ public class DomainService implements IDomainService {
             throw new BankAccountNotFoundException("Bank account not found with id: " + request.bankAccountId());
         }
 
-        // Update fields
+        // Validate the optional savings-goal link (must reference an active goal)
+        requireActiveGoalIfPresent(request.savingsGoalId());
+
+        // Update fields (a null savingsGoalId unlinks the goal)
         savings.setName(request.name());
         savings.setAmount(request.amount());
         savings.setBankAccountId(request.bankAccountId());
+        savings.setSavingsGoalId(request.savingsGoalId());
 
         // Save (updatedAt will be auto-updated by JPA auditing)
         BudgetSavings updatedSavings = dataService.saveBudgetSavings(savings);
@@ -843,6 +850,11 @@ public class DomainService implements IDomainService {
 
         // Update account balances based on savings (Story 26)
         updateBalancesForBudget(budgetId, savedBudget);
+
+        // Earmark goal-linked savings toward their goals (item 070c). Done after
+        // the balance update above so the savings money already credits each
+        // account, keeping the unallocated invariant satisfied.
+        allocateSavingsToGoalsOnLock(budgetId);
 
         // Update recurring expenses for this budget
         updateRecurringExpensesForBudget(budgetId, lockedAt, savedBudget.getMonth(), savedBudget.getYear());
@@ -940,6 +952,10 @@ public class DomainService implements IDomainService {
         if (!budget.getId().equals(mostRecentBudget.getId())) {
             throw new NotMostRecentBudgetException("Only the most recent budget can be unlocked");
         }
+
+        // Reverse goal allocations made on lock (item 070c) before restoring
+        // balances — the inverse order of lock (allocate after balance update).
+        reverseSavingsGoalAllocationsOnUnlock(budgetId);
 
         // Reverse balance changes
         reverseBalanceChanges(budgetId);
@@ -1293,6 +1309,65 @@ public class DomainService implements IDomainService {
 
         dataService.saveGoalAllocationChange(new GoalAllocationChange(
                 goalId, account.getId(), changeAmount, newAmount, source));
+    }
+
+    /**
+     * On budget lock, earmark each goal-linked savings line toward its goal:
+     * increase the goal's allocation on the savings item's account by the line's
+     * amount (summed per goal+account), writing a {@code BUDGET_LOCK} ledger row.
+     * Savings whose goal was archived or deleted since linking are skipped — those
+     * goals no longer accept allocations. Runs inside the lock transaction; an
+     * over-allocation would surface {@link InsufficientUnallocatedFundsException}
+     * and roll back the whole lock.
+     */
+    private void allocateSavingsToGoalsOnLock(UUID budgetId) {
+        savingsAmountByGoalAndAccount(budgetId).forEach((key, amount) -> {
+            SavingsGoal goal = dataService.getSavingsGoalById(key.goalId()).orElse(null);
+            if (goal == null || goal.getStatus() != GoalStatus.ACTIVE) {
+                return;
+            }
+            BankAccount account = requireActiveAccount(key.accountId());
+            BigDecimal current = dataService.getGoalAllocation(key.goalId(), key.accountId())
+                    .map(GoalAllocation::getAmount).orElse(BigDecimal.ZERO);
+            applyAllocation(key.goalId(), account, current.add(amount), GoalAllocationChangeSource.BUDGET_LOCK);
+        });
+    }
+
+    /**
+     * On unlock, undo exactly the allocation each goal-linked savings line added
+     * on lock: reduce the goal's allocation on the account by the line's amount
+     * (summed per goal+account), writing the reversing ledger row. Tolerant of
+     * concurrent changes while the budget was locked — clamps at zero and skips
+     * allocations already removed (e.g. by archiving the goal).
+     */
+    private void reverseSavingsGoalAllocationsOnUnlock(UUID budgetId) {
+        savingsAmountByGoalAndAccount(budgetId).forEach((key, amount) -> {
+            Optional<GoalAllocation> existing = dataService.getGoalAllocation(key.goalId(), key.accountId());
+            BigDecimal current = existing.map(GoalAllocation::getAmount).orElse(BigDecimal.ZERO);
+            if (current.compareTo(BigDecimal.ZERO) == 0) {
+                return;
+            }
+            BankAccount account = requireActiveAccount(key.accountId());
+            BigDecimal reversed = current.subtract(amount).max(BigDecimal.ZERO);
+            applyAllocation(key.goalId(), account, reversed, GoalAllocationChangeSource.BUDGET_LOCK);
+        });
+    }
+
+    private Map<GoalAccountKey, BigDecimal> savingsAmountByGoalAndAccount(UUID budgetId) {
+        return dataService.getBudgetSavingsByBudgetId(budgetId).stream()
+                .filter(savings -> savings.getSavingsGoalId() != null)
+                .collect(Collectors.groupingBy(
+                        savings -> new GoalAccountKey(savings.getSavingsGoalId(), savings.getBankAccountId()),
+                        Collectors.reducing(BigDecimal.ZERO, BudgetSavings::getAmount, BigDecimal::add)));
+    }
+
+    private record GoalAccountKey(UUID goalId, UUID accountId) {
+    }
+
+    private void requireActiveGoalIfPresent(UUID goalId) {
+        if (goalId != null) {
+            requireActiveGoal(goalId);
+        }
     }
 
     private SavingsGoalResponse buildGoalResponse(SavingsGoal goal) {
