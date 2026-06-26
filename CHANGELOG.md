@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.5.0](https://github.com/axel-nyman/balance-backend/compare/v1.4.1...v1.5.0) (2026-06-26)
+
+
+### Features
+
+* add savings goals backend foundation (item 070a) ([#54](https://github.com/axel-nyman/balance-backend/issues/54)) ([0e67b28](https://github.com/axel-nyman/balance-backend/commit/0e67b28ea3f0fb801d0f08c1211b0892627862ef))
+* link budget savings to goals and earmark on lock (item 070c) ([#58](https://github.com/axel-nyman/balance-backend/issues/58)) ([9acee3d](https://github.com/axel-nyman/balance-backend/commit/9acee3dbb87e2b3367444570e3f9c430218e56d8))
+* reconcile savings-goal allocations on manual balance updates (item 070d) ([#59](https://github.com/axel-nyman/balance-backend/issues/59)) ([9f92457](https://github.com/axel-nyman/balance-backend/commit/9f924578820a0cb7de6ef3c7ba5f0d88c9e2f4b9))
+
 ## [1.4.1](https://github.com/axel-nyman/balance-backend/compare/v1.4.0...v1.4.1) (2026-06-22)
 
 
