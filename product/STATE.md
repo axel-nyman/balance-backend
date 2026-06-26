@@ -6,7 +6,7 @@
 > `CHANGELOG.md` (generated — never hand-edit), and `.claude/thoughts/` in
 > both repos for engineering research and plans.
 
-**Last updated:** 2026-06-25 (item 070d — manual balance changes reconcile goal allocations)
+**Last updated:** 2026-06-26 (backlog refilled — proposed specs 080, 090, 100)
 
 ## What Balance is
 
@@ -227,11 +227,16 @@ tables; V6 added the nullable `budget_savings.savings_goal_id` FK).
 Specs live directly in `product/` (filename `NNN-slug.md`, lowest number =
 highest priority).
 
-_Empty._ The savings-goals feature is complete: `070a` (backend foundation),
-`070b` (frontend goals pages), `070c` (budget-savings ↔ goal linking on
-lock/unlock), `070e` (progress/history chart + projections on the goal detail
-page) and `070d` (manual-balance reallocation) are all **done**. No specs are
-currently waiting in `product/`.
+The savings-goals feature is complete (`070a`–`070e`, all **done**). Three new
+specs were proposed on 2026-06-26 to refill the empty backlog (grounded in
+documented debt, routine friction, and the sprint-5 E2E stories); the
+maintainer prioritizes/approves them by merging the proposal PR:
+
+| Item | What | Scope | Size |
+|---|---|---|---|
+| `080-edit-budget-month-year` | Edit an UNLOCKED budget's month/year in place (`PUT /api/budgets/{id}`) instead of delete-and-rebuild | full-stack | M |
+| `090-reconcile-backlog-dir-drift` | Make docs and reality agree on the `product/backlog/` location (resolve the known drift) | backend (docs) | S |
+| `100-transfer-algorithm-e2e-tests` | Promote sprint-5 Story 32: correctness E2E tests for the lock-time transfer algorithm | backend (tests) | M |
 
 ## Recently completed
 
