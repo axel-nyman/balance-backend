@@ -23,6 +23,16 @@ public class BudgetDtos {
             Integer year
     ) {}
 
+    public record UpdateBudgetRequest(
+            @NotNull(message = "Month is required")
+            @Min(value = 1, message = "Month must be between 1 and 12")
+            @Max(value = 12, message = "Month must be between 1 and 12")
+            Integer month,
+
+            @NotNull(message = "Year is required")
+            Integer year
+    ) {}
+
     public record BudgetTotalsResponse(
             BigDecimal income,
             BigDecimal expenses,

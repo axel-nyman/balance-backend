@@ -69,6 +69,8 @@ public interface IDataService {
 
     boolean existsByMonthAndYear(Integer month, Integer year);
 
+    boolean existsByMonthAndYearExcludingId(Integer month, Integer year, UUID excludeId);
+
     boolean existsByStatus(BudgetStatus status);
 
     List<Budget> getAllBudgetsSorted();

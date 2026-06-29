@@ -618,6 +618,44 @@ public class DomainService implements IDomainService {
     }
 
     @Override
+    @Transactional
+    public BudgetResponse updateBudget(UUID id, UpdateBudgetRequest request) {
+        Budget budget = dataService.getBudgetById(id)
+                .orElseThrow(() -> new BudgetNotFoundException("Budget not found with id: " + id));
+
+        // Only UNLOCKED budgets are editable; locked budgets are immutable
+        if (budget.getStatus() == BudgetStatus.LOCKED) {
+            throw new BudgetLockedException("Cannot modify locked budget");
+        }
+
+        // Validate year range (2000-2100), mirroring createBudget
+        if (request.year() < 2000 || request.year() > 2100) {
+            throw new InvalidYearException("Invalid year value. Must be between 2000 and 2100");
+        }
+
+        // Reject collisions with another non-deleted budget (no-op same-month edits pass)
+        if (dataService.existsByMonthAndYearExcludingId(request.month(), request.year(), id)) {
+            throw new DuplicateBudgetException("Budget already exists for this month");
+        }
+
+        budget.setMonth(request.month());
+        budget.setYear(request.year());
+        Budget savedBudget = dataService.saveBudget(budget);
+
+        BigDecimal totalIncome = dataService.calculateTotalIncome(id);
+        BigDecimal totalExpenses = dataService.calculateTotalExpenses(id);
+        BigDecimal totalSavings = dataService.calculateTotalSavings(id);
+        BudgetTotalsResponse totals = new BudgetTotalsResponse(
+                totalIncome,
+                totalExpenses,
+                totalSavings,
+                totalIncome.subtract(totalExpenses).subtract(totalSavings)
+        );
+
+        return BudgetExtensions.toResponse(savedBudget, totals);
+    }
+
+    @Override
     public BudgetListResponse getAllBudgets() {
         List<Budget> budgets = dataService.getAllBudgetsSorted();
 

@@ -16,6 +16,8 @@ public interface BudgetRepository extends JpaRepository<Budget, UUID> {
 
     boolean existsByMonthAndYearAndDeletedAtIsNull(Integer month, Integer year);
 
+    boolean existsByMonthAndYearAndDeletedAtIsNullAndIdNot(Integer month, Integer year, UUID id);
+
     boolean existsByStatusAndDeletedAtIsNull(BudgetStatus status);
 
     List<Budget> findAllByDeletedAtIsNullOrderByYearDescMonthDesc();

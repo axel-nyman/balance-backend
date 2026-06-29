@@ -44,6 +44,8 @@ public interface IDomainService {
     // Budget operations
     BudgetResponse createBudget(CreateBudgetRequest request);
 
+    BudgetResponse updateBudget(UUID id, UpdateBudgetRequest request);
+
     BudgetListResponse getAllBudgets();
 
     BudgetDetailResponse getBudgetDetails(UUID id);

@@ -6,7 +6,7 @@
 > `CHANGELOG.md` (generated — never hand-edit), and `.claude/thoughts/` in
 > both repos for engineering research and plans.
 
-**Last updated:** 2026-06-26 (backlog refilled — proposed specs 080, 090, 100)
+**Last updated:** 2026-06-29 (item 080 — edit budget month/year in place)
 
 ## What Balance is
 
@@ -127,15 +127,17 @@ tables; V6 added the nullable `budget_savings.savings_goal_id` FK).
   `/{id}/allocations` POST (set an account's earmark; zero removes it);
   `/{id}/archive` POST (`releaseToBalance` boolean — frees allocations, and
   when true also reduces backing balances with `AUTOMATIC` balance-history).
-- `/api/budgets` — POST, GET (with totals); `/{id}` GET, DELETE; `/{id}/lock`
-  PUT; `/{id}/unlock` PUT; `/{budgetId}/income|expenses|savings` POST and
-  `…/{itemId}` PUT, DELETE; `/{budgetId}/todo-list` GET;
+- `/api/budgets` — POST, GET (with totals); `/{id}` GET, PUT, DELETE;
+  `/{id}/lock` PUT; `/{id}/unlock` PUT; `/{budgetId}/income|expenses|savings`
+  POST and `…/{itemId}` PUT, DELETE; `/{budgetId}/todo-list` GET;
   `/{budgetId}/todo-list/items/{id}` PUT. Savings create/update accept an
   optional `savingsGoalId` (item 070c; additive, defaults to null) echoed back
-  on savings responses.
+  on savings responses. `PUT /{id}` (item 080) edits only the month/year of an
+  **UNLOCKED** budget (`{month, year}` → `BudgetResponse`), preserving all line
+  items; it rejects locked budgets (400 "Cannot modify locked budget"),
+  duplicate `(month, year)` (400, same `DuplicateBudgetException` as create —
+  note: 400, not 409), and out-of-range years; no-op same-month edits succeed.
 - `/api/recurring-expenses` — POST, GET; `/{id}` GET, PUT, DELETE.
-- There is no `PUT /api/budgets/{id}` — month/year is not editable after
-  creation (a possible future item; not yet specced).
 
 ## Frontend pages
 
@@ -159,7 +161,11 @@ tables; V6 added the nullable `budget_savings.savings_goal_id` FK).
   can be earmarked toward a goal during budget creation.
 - `/budgets/:id` — income/expenses/savings sections with add/edit/delete
   modals (UNLOCKED only); summary with balance bar; lock/unlock/delete
-  actions; link to the todo page when locked. The savings add/edit modal has an
+  actions; link to the todo page when locked. UNLOCKED budgets also show an
+  "Edit Month" action that opens a modal (RHF + Zod, mirroring the wizard's
+  month step) to change the budget's month/year in place while keeping all line
+  items (item 080); LOCKED budgets show the Todo List link instead and no
+  Edit-Month action. The savings add/edit modal has an
   optional **Goal** selector (item 070c) and savings rows show the linked goal
   (`account · goal`). On UNLOCKED budgets a
   "due recurring expenses not added" hint above the expenses section lists
@@ -234,7 +240,6 @@ maintainer prioritizes/approves them by merging the proposal PR:
 
 | Item | What | Scope | Size |
 |---|---|---|---|
-| `080-edit-budget-month-year` | Edit an UNLOCKED budget's month/year in place (`PUT /api/budgets/{id}`) instead of delete-and-rebuild | full-stack | M |
 | `090-reconcile-backlog-dir-drift` | Make docs and reality agree on the `product/backlog/` location (resolve the known drift) | backend (docs) | S |
 | `100-transfer-algorithm-e2e-tests` | Promote sprint-5 Story 32: correctness E2E tests for the lock-time transfer algorithm | backend (tests) | M |
 
@@ -245,6 +250,7 @@ maintainer prioritizes/approves them by merging the proposal PR:
 
 | Date | Item | Repos |
 |---|---|---|
+| 2026-06-29 | Edit an UNLOCKED budget's month/year in place (`PUT /api/budgets/{id}` + Edit-Month modal), keeping all line items (item 080) | backend, frontend |
 | 2026-06-25 | Manual balance changes reconcile goal allocations: auto single-goal deficit, multi-goal split (409), increase earmark (item 070d) | backend, frontend |
 | 2026-06-25 | Savings-goals progress: goal detail history chart, velocity projection & end-date required-contribution (item 070e) | frontend, backend (bookkeeping) |
 | 2026-06-25 | Savings-goals budget linking: savings lines link to goals, earmark on lock / reverse on unlock (item 070c) | backend, frontend |
