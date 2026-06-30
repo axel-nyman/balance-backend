@@ -6,7 +6,7 @@
 > `CHANGELOG.md` (generated — never hand-edit), and `.claude/thoughts/` in
 > both repos for engineering research and plans.
 
-**Last updated:** 2026-06-26 (backlog refilled — proposed specs 080, 090, 100)
+**Last updated:** 2026-06-30 (item 090 — reconciled backlog dir to `product/backlog/`)
 
 ## What Balance is
 
@@ -216,16 +216,13 @@ tables; V6 added the nullable `budget_savings.savings_goal_id` FK).
 - `todo/backlog/sprint-5/` holds 10 unimplemented E2E-test-hardening stories
   from the original build-out; promote into `product/backlog/` if wanted.
 - No rate limiting and no auth: fine on a LAN, never expose to the internet.
-- **Doc drift:** backlog specs live **flat in `product/`** (e.g.
-  `product/020-….md`), not in a `product/backlog/` subdirectory. `README.md`,
-  both `CLAUDE.md` files, and `ROUTINE_PROMPT.md` still say `product/backlog/`;
-  only `done/` is a real subdir. Treat "the backlog" as the `NNN-*.md` files in
-  `product/` until the docs are reconciled.
 
-## Open backlog (as of 2026-06-25)
+## Open backlog (as of 2026-06-30)
 
-Specs live directly in `product/` (filename `NNN-slug.md`, lowest number =
-highest priority).
+Specs live in `product/backlog/` (filename `NNN-slug.md`, lowest number =
+highest priority); `done/` holds completed specs. This matches `README.md`,
+both `CLAUDE.md` files, and `ROUTINE_PROMPT.md` (item 090 reconciled the
+earlier flat-`product/` drift).
 
 The savings-goals feature is complete (`070a`–`070e`, all **done**). Three new
 specs were proposed on 2026-06-26 to refill the empty backlog (grounded in
@@ -235,7 +232,6 @@ maintainer prioritizes/approves them by merging the proposal PR:
 | Item | What | Scope | Size |
 |---|---|---|---|
 | `080-edit-budget-month-year` | Edit an UNLOCKED budget's month/year in place (`PUT /api/budgets/{id}`) instead of delete-and-rebuild | full-stack | M |
-| `090-reconcile-backlog-dir-drift` | Make docs and reality agree on the `product/backlog/` location (resolve the known drift) | backend (docs) | S |
 | `100-transfer-algorithm-e2e-tests` | Promote sprint-5 Story 32: correctness E2E tests for the lock-time transfer algorithm | backend (tests) | M |
 
 ## Recently completed
@@ -245,6 +241,7 @@ maintainer prioritizes/approves them by merging the proposal PR:
 
 | Date | Item | Repos |
 |---|---|---|
+| 2026-06-30 | Reconcile backlog dir drift: specs moved into `product/backlog/` to match the docs (item 090) | backend (docs) |
 | 2026-06-25 | Manual balance changes reconcile goal allocations: auto single-goal deficit, multi-goal split (409), increase earmark (item 070d) | backend, frontend |
 | 2026-06-25 | Savings-goals progress: goal detail history chart, velocity projection & end-date required-contribution (item 070e) | frontend, backend (bookkeeping) |
 | 2026-06-25 | Savings-goals budget linking: savings lines link to goals, earmark on lock / reverse on unlock (item 070c) | backend, frontend |
