@@ -6,7 +6,7 @@
 > `CHANGELOG.md` (generated — never hand-edit), and `.claude/thoughts/` in
 > both repos for engineering research and plans.
 
-**Last updated:** 2026-06-30 (item 090 — reconciled backlog dir to `product/backlog/`)
+**Last updated:** 2026-07-01 (item 100 — transfer-algorithm correctness E2E tests)
 
 ## What Balance is
 
@@ -34,9 +34,12 @@ in the item 015 review; focused charts that aid the monthly routine are welcome.
 2. **Lock** — locking makes the budget read-only, computes the minimal set of
    inter-account transfers to cover each account's planned net position
    (greedy algorithm in `TransferCalculationUtils`), generates a todo list
-   (TRANSFER items for the plan + PAYMENT items for manual expenses), applies
-   the transfers to account balances, and writes AUTOMATIC balance-history
-   entries. Recurring templates used in the budget get their last-used
+   (TRANSFER items for the plan + PAYMENT items for manual expenses), and
+   credits each account's budgeted savings to its balance (writing AUTOMATIC
+   balance-history entries). The transfer plan is a **manual** checklist the
+   couple executes in their real bank — it is *not* auto-applied to account
+   balances (verified by item 100's E2E tests). Recurring templates used in the
+   budget get their last-used
    month/year stamped, which drives their next due date. Any savings line
    linked to a goal (item 070c) also earmarks that month's saving toward the
    goal (a `BUDGET_LOCK` allocation), inside the same lock transaction.
@@ -232,7 +235,6 @@ maintainer prioritizes/approves them by merging the proposal PR:
 | Item | What | Scope | Size |
 |---|---|---|---|
 | `080-edit-budget-month-year` | Edit an UNLOCKED budget's month/year in place (`PUT /api/budgets/{id}`) instead of delete-and-rebuild | full-stack | M |
-| `100-transfer-algorithm-e2e-tests` | Promote sprint-5 Story 32: correctness E2E tests for the lock-time transfer algorithm | backend (tests) | M |
 
 ## Recently completed
 
@@ -241,6 +243,7 @@ maintainer prioritizes/approves them by merging the proposal PR:
 
 | Date | Item | Repos |
 |---|---|---|
+| 2026-07-01 | Transfer-algorithm correctness E2E tests (no self-transfers/cycles, conservation, minimality); promoted sprint-5 Story 32 (item 100) | backend (tests) |
 | 2026-06-30 | Reconcile backlog dir drift: specs moved into `product/backlog/` to match the docs (item 090) | backend (docs) |
 | 2026-06-25 | Manual balance changes reconcile goal allocations: auto single-goal deficit, multi-goal split (409), increase earmark (item 070d) | backend, frontend |
 | 2026-06-25 | Savings-goals progress: goal detail history chart, velocity projection & end-date required-contribution (item 070e) | frontend, backend (bookkeeping) |

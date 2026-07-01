@@ -60,3 +60,57 @@ in the PR rather than silently "fixing" the algorithm in the same change.
 - Move `todo/backlog/sprint-5/32-*.md` to `todo/done/` as part of this item's
   bookkeeping (in addition to the usual `product/` → `done/` move and STATE.md
   update), since it promotes that sprint-5 story.
+
+## Completion notes
+
+**Completed:** 2026-07-01
+**PR:** balance-backend — `feat`/`test` on branch `claude/youthful-hamilton-f0b6xi`
+
+### What shipped
+New `@SpringBootTest` + Testcontainers suite
+`src/test/java/org/example/axelnyman/main/integration/TransferAlgorithmE2ETest.java`
+(4 tests) that drives the real `POST budget → add lines → PUT /lock → GET
+todo-list` path and asserts the emitted transfer plan is correct. **No
+production code was changed** (tests only). All acceptance criteria are covered:
+
+- **No self-transfers** — `assertNoSelfTransfers` on every lockable fixture.
+- **No trivial cycles** — `assertNoCancellingPairs` (no A→B & B→A) plus
+  `assertAcyclic` (no account is both a source and a destination) on the
+  complex six-account web.
+- **Conservation** — `assertConservation`: per account, (transfers out −
+  transfers in) equals the account's net position, and total-out equals
+  total-in. See the balance interpretation below.
+- **Transfer-count minimality** — asserted `≤ n−1` for the six-account web and
+  **exactly 4** (all from the hub) for the dominant-hub fixture; **exactly 0**
+  for the all-deficit fixture.
+- **Edge fixtures** — dominant-hub (via the real lock path) and all-deficit
+  (direct `TransferCalculationUtils.calculateTransfers`, since an all-deficit
+  budget can never balance to zero and therefore cannot be locked — this
+  mirrors Story 32 Test 4).
+- BigDecimal comparisons use `isEqualByComparingTo` throughout; no new runtime
+  or test dependencies.
+
+### Interpretation / discrepancy recorded
+The spec's conservation criterion is worded as "every account's post-lock
+**balance** equals its pre-lock balance plus its planned net position." Reading
+the lock code (`DomainService.lockBudget` → `updateBalancesForBudget`) and the
+existing lock tests shows this is **not** how the app behaves, by design:
+
+- Lock does **not** auto-apply the transfer plan to account balances. Transfers
+  are emitted as a **manual `TRANSFER` todo list** the couple executes in their
+  real bank.
+- The only balance mutation on lock is crediting each account's **savings**
+  (written as AUTOMATIC balance history; e.g. `BudgetSavingsGoalLinkIntegrationTest`
+  asserts an account with +500 income / −500 savings ends at pre-balance **+500**,
+  i.e. + savings, not + net position).
+
+Conservation is therefore asserted on the transfer **plan** — the
+mathematically meaningful invariant and exactly what "cover each account's
+planned net position" means — rather than on resulting balances. This is a
+**documentation** inaccuracy, not a code bug: STATE.md previously said lock
+"applies the transfers to account balances"; that wording is corrected in this
+change to describe the manual-todo design. No algorithm defect was found.
+
+### Also moved
+`todo/backlog/sprint-5/32-transfer-algorithm-e2e-tests.md` →
+`todo/done/` (this item promotes that sprint-5 story).
