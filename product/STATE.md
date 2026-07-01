@@ -6,7 +6,7 @@
 > `CHANGELOG.md` (generated — never hand-edit), and `.claude/thoughts/` in
 > both repos for engineering research and plans.
 
-**Last updated:** 2026-06-30 (item 090 — reconciled backlog dir to `product/backlog/`)
+**Last updated:** 2026-07-01 (item 100 — lock-time transfer algorithm E2E tests)
 
 ## What Balance is
 
@@ -213,8 +213,9 @@ tables; V6 added the nullable `budget_savings.savings_goal_id` FK).
   `spring-boot-rest-api-template` are template leftovers. Renaming is invasive
   and low-value; leave unless explicitly decided.
 - Todo lists are deleted on unlock — there is no todo history. By design so far.
-- `todo/backlog/sprint-5/` holds 10 unimplemented E2E-test-hardening stories
-  from the original build-out; promote into `product/backlog/` if wanted.
+- `todo/backlog/sprint-5/` holds 9 unimplemented E2E-test-hardening stories
+  from the original build-out (Story 32 was promoted as item 100, done
+  2026-07-01); promote others into `product/backlog/` if wanted.
 - No rate limiting and no auth: fine on a LAN, never expose to the internet.
 
 ## Open backlog (as of 2026-06-30)
@@ -232,7 +233,8 @@ maintainer prioritizes/approves them by merging the proposal PR:
 | Item | What | Scope | Size |
 |---|---|---|---|
 | `080-edit-budget-month-year` | Edit an UNLOCKED budget's month/year in place (`PUT /api/budgets/{id}`) instead of delete-and-rebuild | full-stack | M |
-| `100-transfer-algorithm-e2e-tests` | Promote sprint-5 Story 32: correctness E2E tests for the lock-time transfer algorithm | backend (tests) | M |
+
+(Item `100-transfer-algorithm-e2e-tests` was completed 2026-07-01 — see below.)
 
 ## Recently completed
 
@@ -241,6 +243,7 @@ maintainer prioritizes/approves them by merging the proposal PR:
 
 | Date | Item | Repos |
 |---|---|---|
+| 2026-07-01 | Lock-time transfer algorithm hardened with correctness E2E tests, promoting sprint-5 Story 32 (item 100) | backend (tests) |
 | 2026-06-30 | Reconcile backlog dir drift: specs moved into `product/backlog/` to match the docs (item 090) | backend (docs) |
 | 2026-06-25 | Manual balance changes reconcile goal allocations: auto single-goal deficit, multi-goal split (409), increase earmark (item 070d) | backend, frontend |
 | 2026-06-25 | Savings-goals progress: goal detail history chart, velocity projection & end-date required-contribution (item 070e) | frontend, backend (bookkeeping) |
