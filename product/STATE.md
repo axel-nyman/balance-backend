@@ -6,7 +6,7 @@
 > `CHANGELOG.md` (generated — never hand-edit), and `.claude/thoughts/` in
 > both repos for engineering research and plans.
 
-**Last updated:** 2026-06-29 (item 080 — edit budget month/year in place)
+**Last updated:** 2026-07-02 (item 080 — edit budget month/year in place)
 
 ## What Balance is
 
@@ -219,29 +219,27 @@ tables; V6 added the nullable `budget_savings.savings_goal_id` FK).
   `spring-boot-rest-api-template` are template leftovers. Renaming is invasive
   and low-value; leave unless explicitly decided.
 - Todo lists are deleted on unlock — there is no todo history. By design so far.
-- `todo/backlog/sprint-5/` holds 10 unimplemented E2E-test-hardening stories
-  from the original build-out; promote into `product/backlog/` if wanted.
+- `todo/backlog/sprint-5/` holds 9 unimplemented E2E-test-hardening stories
+  from the original build-out (Story 32 was promoted as item 100, done
+  2026-07-01); promote others into `product/backlog/` if wanted.
 - No rate limiting and no auth: fine on a LAN, never expose to the internet.
-- **Doc drift:** backlog specs live **flat in `product/`** (e.g.
-  `product/020-….md`), not in a `product/backlog/` subdirectory. `README.md`,
-  both `CLAUDE.md` files, and `ROUTINE_PROMPT.md` still say `product/backlog/`;
-  only `done/` is a real subdir. Treat "the backlog" as the `NNN-*.md` files in
-  `product/` until the docs are reconciled.
 
-## Open backlog (as of 2026-06-25)
+## Open backlog (as of 2026-06-30)
 
-Specs live directly in `product/` (filename `NNN-slug.md`, lowest number =
-highest priority).
+Specs live in `product/backlog/` (filename `NNN-slug.md`, lowest number =
+highest priority); `done/` holds completed specs. This matches `README.md`,
+both `CLAUDE.md` files, and `ROUTINE_PROMPT.md` (item 090 reconciled the
+earlier flat-`product/` drift).
 
 The savings-goals feature is complete (`070a`–`070e`, all **done**). Three new
 specs were proposed on 2026-06-26 to refill the empty backlog (grounded in
-documented debt, routine friction, and the sprint-5 E2E stories); the
-maintainer prioritizes/approves them by merging the proposal PR:
+documented debt, routine friction, and the sprint-5 E2E stories); all three are
+now complete — `090` and `100` (2026-06-30 / 2026-07-01) and `080` (this
+change). **The backlog is currently empty.**
 
 | Item | What | Scope | Size |
 |---|---|---|---|
-| `090-reconcile-backlog-dir-drift` | Make docs and reality agree on the `product/backlog/` location (resolve the known drift) | backend (docs) | S |
-| `100-transfer-algorithm-e2e-tests` | Promote sprint-5 Story 32: correctness E2E tests for the lock-time transfer algorithm | backend (tests) | M |
+| _(none)_ | Backlog empty — next run should propose new specs (see `ROUTINE_PROMPT.md` → "Empty backlog") | — | — |
 
 ## Recently completed
 
@@ -250,7 +248,9 @@ maintainer prioritizes/approves them by merging the proposal PR:
 
 | Date | Item | Repos |
 |---|---|---|
-| 2026-06-29 | Edit an UNLOCKED budget's month/year in place (`PUT /api/budgets/{id}` + Edit-Month modal), keeping all line items (item 080) | backend, frontend |
+| 2026-07-02 | Edit an UNLOCKED budget's month/year in place (`PUT /api/budgets/{id}` + Edit-Month pen action), keeping all line items (item 080) | backend, frontend |
+| 2026-07-01 | Lock-time transfer algorithm hardened with correctness E2E tests, promoting sprint-5 Story 32 (item 100) | backend (tests) |
+| 2026-06-30 | Reconcile backlog dir drift: specs moved into `product/backlog/` to match the docs (item 090) | backend (docs) |
 | 2026-06-25 | Manual balance changes reconcile goal allocations: auto single-goal deficit, multi-goal split (409), increase earmark (item 070d) | backend, frontend |
 | 2026-06-25 | Savings-goals progress: goal detail history chart, velocity projection & end-date required-contribution (item 070e) | frontend, backend (bookkeeping) |
 | 2026-06-25 | Savings-goals budget linking: savings lines link to goals, earmark on lock / reverse on unlock (item 070c) | backend, frontend |
