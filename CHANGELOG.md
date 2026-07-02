@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/axel-nyman/balance-backend/compare/v1.5.0...v1.6.0) (2026-07-02)
+
+
+### Features
+
+* edit an unlocked budget's month/year in place (item 080) ([#63](https://github.com/axel-nyman/balance-backend/issues/63)) ([31325db](https://github.com/axel-nyman/balance-backend/commit/31325dbf88b5d10cbb155676ef990649306d6814))
+
 ## [1.5.0](https://github.com/axel-nyman/balance-backend/compare/v1.4.1...v1.5.0) (2026-06-26)
 
 
