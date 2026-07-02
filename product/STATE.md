@@ -6,7 +6,7 @@
 > `CHANGELOG.md` (generated — never hand-edit), and `.claude/thoughts/` in
 > both repos for engineering research and plans.
 
-**Last updated:** 2026-07-01 (item 100 — lock-time transfer algorithm E2E tests)
+**Last updated:** 2026-07-02 (item 080 — edit budget month/year in place)
 
 ## What Balance is
 
@@ -127,15 +127,17 @@ tables; V6 added the nullable `budget_savings.savings_goal_id` FK).
   `/{id}/allocations` POST (set an account's earmark; zero removes it);
   `/{id}/archive` POST (`releaseToBalance` boolean — frees allocations, and
   when true also reduces backing balances with `AUTOMATIC` balance-history).
-- `/api/budgets` — POST, GET (with totals); `/{id}` GET, DELETE; `/{id}/lock`
-  PUT; `/{id}/unlock` PUT; `/{budgetId}/income|expenses|savings` POST and
-  `…/{itemId}` PUT, DELETE; `/{budgetId}/todo-list` GET;
+- `/api/budgets` — POST, GET (with totals); `/{id}` GET, PUT, DELETE;
+  `/{id}/lock` PUT; `/{id}/unlock` PUT; `/{budgetId}/income|expenses|savings`
+  POST and `…/{itemId}` PUT, DELETE; `/{budgetId}/todo-list` GET;
   `/{budgetId}/todo-list/items/{id}` PUT. Savings create/update accept an
   optional `savingsGoalId` (item 070c; additive, defaults to null) echoed back
-  on savings responses.
+  on savings responses. `PUT /{id}` (item 080) edits only the month/year of an
+  **UNLOCKED** budget (`{month, year}` → `BudgetResponse`), preserving all line
+  items; it rejects locked budgets (400 "Cannot modify locked budget"),
+  duplicate `(month, year)` (400, same `DuplicateBudgetException` as create —
+  note: 400, not 409), and out-of-range years; no-op same-month edits succeed.
 - `/api/recurring-expenses` — POST, GET; `/{id}` GET, PUT, DELETE.
-- There is no `PUT /api/budgets/{id}` — month/year is not editable after
-  creation (a possible future item; not yet specced).
 
 ## Frontend pages
 
@@ -159,7 +161,11 @@ tables; V6 added the nullable `budget_savings.savings_goal_id` FK).
   can be earmarked toward a goal during budget creation.
 - `/budgets/:id` — income/expenses/savings sections with add/edit/delete
   modals (UNLOCKED only); summary with balance bar; lock/unlock/delete
-  actions; link to the todo page when locked. The savings add/edit modal has an
+  actions; link to the todo page when locked. UNLOCKED budgets also show an
+  "Edit Month" action that opens a modal (RHF + Zod, mirroring the wizard's
+  month step) to change the budget's month/year in place while keeping all line
+  items (item 080); LOCKED budgets show the Todo List link instead and no
+  Edit-Month action. The savings add/edit modal has an
   optional **Goal** selector (item 070c) and savings rows show the linked goal
   (`account · goal`). On UNLOCKED budgets a
   "due recurring expenses not added" hint above the expenses section lists
@@ -227,14 +233,13 @@ earlier flat-`product/` drift).
 
 The savings-goals feature is complete (`070a`–`070e`, all **done**). Three new
 specs were proposed on 2026-06-26 to refill the empty backlog (grounded in
-documented debt, routine friction, and the sprint-5 E2E stories); the
-maintainer prioritizes/approves them by merging the proposal PR:
+documented debt, routine friction, and the sprint-5 E2E stories); all three are
+now complete — `090` and `100` (2026-06-30 / 2026-07-01) and `080` (this
+change). **The backlog is currently empty.**
 
 | Item | What | Scope | Size |
 |---|---|---|---|
-| `080-edit-budget-month-year` | Edit an UNLOCKED budget's month/year in place (`PUT /api/budgets/{id}`) instead of delete-and-rebuild | full-stack | M |
-
-(Item `100-transfer-algorithm-e2e-tests` was completed 2026-07-01 — see below.)
+| _(none)_ | Backlog empty — next run should propose new specs (see `ROUTINE_PROMPT.md` → "Empty backlog") | — | — |
 
 ## Recently completed
 
@@ -243,6 +248,7 @@ maintainer prioritizes/approves them by merging the proposal PR:
 
 | Date | Item | Repos |
 |---|---|---|
+| 2026-07-02 | Edit an UNLOCKED budget's month/year in place (`PUT /api/budgets/{id}` + Edit-Month pen action), keeping all line items (item 080) | backend, frontend |
 | 2026-07-01 | Lock-time transfer algorithm hardened with correctness E2E tests, promoting sprint-5 Story 32 (item 100) | backend (tests) |
 | 2026-06-30 | Reconcile backlog dir drift: specs moved into `product/backlog/` to match the docs (item 090) | backend (docs) |
 | 2026-06-25 | Manual balance changes reconcile goal allocations: auto single-goal deficit, multi-goal split (409), increase earmark (item 070d) | backend, frontend |

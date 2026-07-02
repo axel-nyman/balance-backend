@@ -5498,6 +5498,127 @@ public class BudgetIntegrationTest {
                                 .andExpect(jsonPath("$.error").value("Todo item does not belong to this budget"));
         }
 
+        // ========== Item 080: Edit an UNLOCKED budget's month/year ==========
+
+        @Test
+        void shouldUpdateMonthAndYearWhenBudgetUnlocked() throws Exception {
+                // Given - an unlocked budget with a line item
+                createBudget(6, 2024);
+                UUID budgetId = budgetRepository.findAll().get(0).getId();
+                var account = createBankAccountEntity("Checking", "Main", new BigDecimal("1000.00"));
+
+                Map<String, Object> incomeRequest = new HashMap<>();
+                incomeRequest.put("name", "Salary");
+                incomeRequest.put("amount", "3000.00");
+                incomeRequest.put("bankAccountId", account.getId().toString());
+                mockMvc.perform(post("/api/budgets/" + budgetId + "/income")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(incomeRequest)))
+                                .andExpect(status().isCreated());
+
+                // When - month/year is changed
+                mockMvc.perform(put("/api/budgets/" + budgetId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(createBudgetRequest(8, 2025))))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.id", is(budgetId.toString())))
+                                .andExpect(jsonPath("$.month", is(8)))
+                                .andExpect(jsonPath("$.year", is(2025)))
+                                .andExpect(jsonPath("$.status", is("UNLOCKED")))
+                                .andExpect(jsonPath("$.lockedAt").doesNotExist());
+
+                // Then - line items are preserved unchanged
+                mockMvc.perform(get("/api/budgets/" + budgetId))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.month", is(8)))
+                                .andExpect(jsonPath("$.year", is(2025)))
+                                .andExpect(jsonPath("$.income", hasSize(1)))
+                                .andExpect(jsonPath("$.income[0].name", is("Salary")));
+        }
+
+        @Test
+        void shouldRejectUpdateWhenBudgetLocked() throws Exception {
+                // Given - a balanced, locked budget
+                createBudget(6, 2024);
+                UUID budgetId = budgetRepository.findAll().get(0).getId();
+                var account = createBankAccountEntity("Checking", "Main", new BigDecimal("1000.00"));
+                addBalancedBudgetItems(budgetId.toString(), account.getId().toString(), 1000.0);
+                mockMvc.perform(put("/api/budgets/" + budgetId + "/lock"))
+                                .andExpect(status().isOk());
+
+                // When & Then - editing a locked budget is rejected
+                mockMvc.perform(put("/api/budgets/" + budgetId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(createBudgetRequest(7, 2024))))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.error", is("Cannot modify locked budget")));
+
+                // And - the budget is unchanged
+                var unchanged = budgetRepository.findById(budgetId).orElseThrow();
+                assertThat(unchanged.getMonth()).isEqualTo(6);
+                assertThat(unchanged.getYear()).isEqualTo(2024);
+        }
+
+        @Test
+        void shouldRejectUpdateWhenTargetMonthYearAlreadyExists() throws Exception {
+                // Given - two budgets (one locked so a second can be created)
+                createBudget(5, 2024);
+                UUID firstBudgetId = budgetRepository.findAll().get(0).getId();
+                var account = createBankAccountEntity("Checking", "Main", new BigDecimal("1000.00"));
+                addBalancedBudgetItems(firstBudgetId.toString(), account.getId().toString(), 1000.0);
+                mockMvc.perform(put("/api/budgets/" + firstBudgetId + "/lock"))
+                                .andExpect(status().isOk());
+                createBudget(6, 2024);
+                UUID secondBudgetId = budgetRepository.findAllByDeletedAtIsNullOrderByYearDescMonthDesc().stream()
+                                .filter(b -> b.getMonth() == 6).findFirst().orElseThrow().getId();
+
+                // When & Then - moving the unlocked budget onto the locked one's month is rejected
+                mockMvc.perform(put("/api/budgets/" + secondBudgetId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(createBudgetRequest(5, 2024))))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.error", is("Budget already exists for this month")));
+
+                // And - no change was persisted
+                var unchanged = budgetRepository.findById(secondBudgetId).orElseThrow();
+                assertThat(unchanged.getMonth()).isEqualTo(6);
+                assertThat(unchanged.getYear()).isEqualTo(2024);
+        }
+
+        @Test
+        void shouldSucceedWhenUpdatingToSameMonthYear() throws Exception {
+                // Given - an unlocked budget
+                createBudget(6, 2024);
+                UUID budgetId = budgetRepository.findAll().get(0).getId();
+
+                // When & Then - a no-op edit (same month/year) is idempotently accepted
+                mockMvc.perform(put("/api/budgets/" + budgetId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(createBudgetRequest(6, 2024))))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.month", is(6)))
+                                .andExpect(jsonPath("$.year", is(2024)));
+        }
+
+        @Test
+        void shouldReturnNotFoundWhenUpdatingNonexistentBudget() throws Exception {
+                mockMvc.perform(put("/api/budgets/" + UUID.randomUUID())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(createBudgetRequest(6, 2024))))
+                                .andExpect(status().isNotFound());
+        }
+
+        @Test
+        void shouldRejectUpdateWithInvalidMonth() throws Exception {
+                createBudget(6, 2024);
+                UUID budgetId = budgetRepository.findAll().get(0).getId();
+
+                mockMvc.perform(put("/api/budgets/" + budgetId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(createBudgetRequest(13, 2024))))
+                                .andExpect(status().isBadRequest());
+        }
+
         // Helper method to create budget request
         private Map<String, Object> createBudgetRequest(Integer month, Integer year) {
                 Map<String, Object> request = new HashMap<>();

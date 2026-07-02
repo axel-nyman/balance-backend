@@ -175,6 +175,11 @@ public class DataService implements IDataService {
     }
 
     @Override
+    public boolean existsByMonthAndYearExcludingId(Integer month, Integer year, java.util.UUID excludeId) {
+        return budgetRepository.existsByMonthAndYearAndDeletedAtIsNullAndIdNot(month, year, excludeId);
+    }
+
+    @Override
     public boolean existsByStatus(BudgetStatus status) {
         return budgetRepository.existsByStatusAndDeletedAtIsNull(status);
     }
