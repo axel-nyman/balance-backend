@@ -6,7 +6,7 @@
 > `CHANGELOG.md` (generated — never hand-edit), and `.claude/thoughts/` in
 > both repos for engineering research and plans.
 
-**Last updated:** 2026-07-02 (item 080 — edit budget month/year in place)
+**Last updated:** 2026-07-02 (backlog refilled with proposed items 110/120/130)
 
 ## What Balance is
 
@@ -224,22 +224,25 @@ tables; V6 added the nullable `budget_savings.savings_goal_id` FK).
   2026-07-01); promote others into `product/backlog/` if wanted.
 - No rate limiting and no auth: fine on a LAN, never expose to the internet.
 
-## Open backlog (as of 2026-06-30)
+## Open backlog (as of 2026-07-02)
 
 Specs live in `product/backlog/` (filename `NNN-slug.md`, lowest number =
 highest priority); `done/` holds completed specs. This matches `README.md`,
 both `CLAUDE.md` files, and `ROUTINE_PROMPT.md` (item 090 reconciled the
 earlier flat-`product/` drift).
 
-The savings-goals feature is complete (`070a`–`070e`, all **done**). Three new
-specs were proposed on 2026-06-26 to refill the empty backlog (grounded in
-documented debt, routine friction, and the sprint-5 E2E stories); all three are
-now complete — `090` and `100` (2026-06-30 / 2026-07-01) and `080` (this
-change). **The backlog is currently empty.**
+The 2026-06-26 proposal round (`080`/`090`/`100`) is fully complete. The
+backlog was refilled on 2026-07-02 (this change) with three **proposed** specs
+grounded in gaps found in the code (no cross-month view; PAYMENT todos are a
+pure status flip and the transfer wallet button opens on a synthesized
+account) and the sprint-5 E2E stories. The maintainer approves them by merging
+the proposal PR; a later run implements lowest-number-first.
 
 | Item | What | Scope | Size |
 |---|---|---|---|
-| _(none)_ | Backlog empty — next run should propose new specs (see `ROUTINE_PROMPT.md` → "Empty backlog") | — | — |
+| `110-budget-trends` | Month-over-month income/expenses/savings trends chart on `/budgets` (locked budgets, inline SVG) | frontend | M |
+| `120-todo-balance-settling` | Settle balances from the todo page: wallet affordance for PAYMENTs + real-account prefill for transfers | frontend | S |
+| `130-data-consistency-e2e-tests` | Balance/history integrity E2E tests (promotes sprint-5 Story 30) | backend (tests) | M |
 
 ## Recently completed
 
