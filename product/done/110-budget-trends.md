@@ -79,7 +79,7 @@ None. Uses the existing budget list response.
 ## Completion notes
 
 - **Date:** 2026-07-03
-- **PRs:** [balance-frontend#30](https://github.com/axel-nyman/balance-frontend/pull/30) (feature), [balance-backend PR](https://github.com/axel-nyman/balance-backend/pulls) (this bookkeeping PR)
+- **PRs:** [balance-frontend#30](https://github.com/axel-nyman/balance-frontend/pull/30) (feature), [balance-backend#68](https://github.com/axel-nyman/balance-backend/pull/68) (this bookkeeping PR)
 - **Interpretation decisions:**
   - "Below or beside the chart" → a single plain-text stat line below the
     chart: latest locked month's savings rate (with the underlying SEK
