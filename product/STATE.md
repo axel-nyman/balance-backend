@@ -6,7 +6,7 @@
 > `CHANGELOG.md` (generated — never hand-edit), and `.claude/thoughts/` in
 > both repos for engineering research and plans.
 
-**Last updated:** 2026-07-02 (backlog refilled with proposed items 110/120/130)
+**Last updated:** 2026-07-03 (item 110: budget trends chart on `/budgets`)
 
 ## What Balance is
 
@@ -149,7 +149,12 @@ tables; V6 added the nullable `budget_savings.savings_goal_id` FK).
   opens a split dialog; an automatic single-goal reduction is shown via a toast.
 - `/recurring-expenses` — template list with due-status indicator; CRUD modals.
 - `/budgets` — budget card grid (status + totals); "new budget" leads to the
-  wizard (one unlocked budget at a time — enforced in UI and backend).
+  wizard (one unlocked budget at a time — enforced in UI and backend). A
+  "Trends" card above the grid (item 110) plots income/expenses/savings for up
+  to the 12 most recent LOCKED budgets (chronological, dependency-free inline
+  SVG like the goal history chart) with a savings-rate stat (latest locked
+  month vs. the plotted average); hidden below 2 locked budgets, drafts never
+  plotted.
 - `/budgets/new` — 5-step wizard; copy-from-last-budget; due templates grouped
   with "add all due"; non-due recurring templates are tucked behind a
   "Show other recurring expenses (N)" collapsible on the expenses step
@@ -224,24 +229,20 @@ tables; V6 added the nullable `budget_savings.savings_goal_id` FK).
   2026-07-01); promote others into `product/backlog/` if wanted.
 - No rate limiting and no auth: fine on a LAN, never expose to the internet.
 
-## Open backlog (as of 2026-07-02)
+## Open backlog (as of 2026-07-03)
 
 Specs live in `product/backlog/` (filename `NNN-slug.md`, lowest number =
 highest priority); `done/` holds completed specs. This matches `README.md`,
 both `CLAUDE.md` files, and `ROUTINE_PROMPT.md` (item 090 reconciled the
 earlier flat-`product/` drift).
 
-The 2026-06-26 proposal round (`080`/`090`/`100`) is fully complete. The
-backlog was refilled on 2026-07-02 (this change) with three **proposed** specs
-grounded in gaps found in the code (no cross-month view; PAYMENT todos are a
-pure status flip and the transfer wallet button opens on a synthesized
-account) and the sprint-5 E2E stories. The maintainer approves them by merging
-the proposal PR; a later run implements lowest-number-first.
+The backlog was refilled on 2026-07-02 with proposed specs. Note: the proposal
+round drafted items 110/120/130, but the squash-merge of proposal PR #67
+included only 110 and 130 — item `120-todo-balance-settling` was dropped in
+review and was never in the backlog. Item 110 is done (2026-07-03), leaving:
 
 | Item | What | Scope | Size |
 |---|---|---|---|
-| `110-budget-trends` | Month-over-month income/expenses/savings trends chart on `/budgets` (locked budgets, inline SVG) | frontend | M |
-| `120-todo-balance-settling` | Settle balances from the todo page: wallet affordance for PAYMENTs + real-account prefill for transfers | frontend | S |
 | `130-data-consistency-e2e-tests` | Balance/history integrity E2E tests (promotes sprint-5 Story 30) | backend (tests) | M |
 
 ## Recently completed
@@ -251,6 +252,7 @@ the proposal PR; a later run implements lowest-number-first.
 
 | Date | Item | Repos |
 |---|---|---|
+| 2026-07-03 | Month-over-month income/expenses/savings trends chart on `/budgets` for locked budgets (item 110) | frontend, backend (bookkeeping) |
 | 2026-07-02 | Edit an UNLOCKED budget's month/year in place (`PUT /api/budgets/{id}` + Edit-Month pen action), keeping all line items (item 080) | backend, frontend |
 | 2026-07-01 | Lock-time transfer algorithm hardened with correctness E2E tests, promoting sprint-5 Story 32 (item 100) | backend (tests) |
 | 2026-06-30 | Reconcile backlog dir drift: specs moved into `product/backlog/` to match the docs (item 090) | backend (docs) |
