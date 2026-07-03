@@ -75,3 +75,21 @@ None. Uses the existing budget list response.
 - `BudgetCard`/`BudgetSummary` show how existing code formats these totals.
 - Bookkeeping as usual in balance-backend (spec → `done/`, STATE.md update)
   via a small `docs:` PR alongside the frontend PR.
+
+## Completion notes
+
+- **Date:** 2026-07-03
+- **PRs:** [balance-frontend#30](https://github.com/axel-nyman/balance-frontend/pull/30) (feature), [balance-backend#68](https://github.com/axel-nyman/balance-backend/pull/68) (this bookkeeping PR)
+- **Interpretation decisions:**
+  - "Below or beside the chart" → a single plain-text stat line below the
+    chart: latest locked month's savings rate (with the underlying SEK
+    amounts) vs. the average of the plotted months, where the average is the
+    mean of per-month rates (each month weighted equally).
+  - Line chart rather than bars — three series stay legible on a phone as
+    lines and it matches the `GoalHistoryChart` idiom.
+  - Selection logic (`LOCKED` filter → chronological sort → 12-month cap)
+    lives in `src/lib/budget-trends.ts` as a pure, unit-tested helper; the
+    component renders `null` below 2 locked budgets.
+  - Savings rate reuses the income-0-safe `round(savings/income*100)` formula
+    from `budget-lifecycle.ts`.
+- **Deviations / cut:** nothing cut; no backend change (as specified).
