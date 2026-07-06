@@ -89,6 +89,16 @@ from the acceptance criteria before implementing.
   classes race the first pull on a cold daemon and fail spuriously
   (`ContainerFetch: Can't get Docker image`) — that is an environment flake,
   not a code failure.
+- If Docker Hub pulls fail with `403 Forbidden` from
+  `production.cloudfront.docker.com` (an egress-policy block on Docker Hub's
+  blob CDN — hit by the item 100 and item 130 runs), the same public images
+  pull fine from Google's Docker Hub mirror. Also make sure the daemon uses
+  the session proxy (start it with `sudo env HTTPS_PROXY="$HTTPS_PROXY" dockerd`
+  if `sudo service docker start` fails):
+  `docker pull mirror.gcr.io/library/postgres:15-alpine`,
+  `docker pull mirror.gcr.io/testcontainers/ryuk:0.12.0`, then `docker tag`
+  each to its Docker Hub name (`postgres:15-alpine`,
+  `testcontainers/ryuk:0.12.0`) so Testcontainers finds them locally.
 - The JDK here is 21 while the project targets Java 17 — that combination
   builds and tests fine; do not "fix" it.
 

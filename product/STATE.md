@@ -6,7 +6,7 @@
 > `CHANGELOG.md` (generated — never hand-edit), and `.claude/thoughts/` in
 > both repos for engineering research and plans.
 
-**Last updated:** 2026-07-03 (item 110: budget trends chart on `/budgets`)
+**Last updated:** 2026-07-06 (item 130: data-consistency E2E tests)
 
 ## What Balance is
 
@@ -224,26 +224,32 @@ tables; V6 added the nullable `budget_savings.savings_goal_id` FK).
   `spring-boot-rest-api-template` are template leftovers. Renaming is invasive
   and low-value; leave unless explicitly decided.
 - Todo lists are deleted on unlock — there is no todo history. By design so far.
-- `todo/backlog/sprint-5/` holds 9 unimplemented E2E-test-hardening stories
+- Unlock deletes the AUTOMATIC balance-history entries of the lock instead of
+  writing reversal entries (so a relock cannot duplicate them). Consequence,
+  pinned by item 130's tests: right after an unlock that had an interleaved
+  manual balance correction, the newest surviving history entry's `balance` no
+  longer equals the account's `currentBalance` (the balance itself is correct;
+  the audit trail has a gap until the next write). Accepted for now — revisit
+  if the couple ever needs a complete audit trail across unlocks.
+- `todo/backlog/sprint-5/` holds 8 unimplemented E2E-test-hardening stories
   from the original build-out (Story 32 was promoted as item 100, done
-  2026-07-01); promote others into `product/backlog/` if wanted.
+  2026-07-01; Story 30 as item 130, done 2026-07-06); promote others into
+  `product/backlog/` if wanted — Story 37 (transaction atomicity) is the
+  strongest candidate.
 - No rate limiting and no auth: fine on a LAN, never expose to the internet.
 
-## Open backlog (as of 2026-07-03)
+## Open backlog (as of 2026-07-06)
 
 Specs live in `product/backlog/` (filename `NNN-slug.md`, lowest number =
 highest priority); `done/` holds completed specs. This matches `README.md`,
 both `CLAUDE.md` files, and `ROUTINE_PROMPT.md` (item 090 reconciled the
 earlier flat-`product/` drift).
 
-The backlog was refilled on 2026-07-02 with proposed specs. Note: the proposal
-round drafted items 110/120/130, but the squash-merge of proposal PR #67
-included only 110 and 130 — item `120-todo-balance-settling` was dropped in
-review and was never in the backlog. Item 110 is done (2026-07-03), leaving:
-
-| Item | What | Scope | Size |
-|---|---|---|---|
-| `130-data-consistency-e2e-tests` | Balance/history integrity E2E tests (promotes sprint-5 Story 30) | backend (tests) | M |
+**The backlog is empty.** Item 130 (the last of the 2026-07-02 refill) is done
+as of 2026-07-06; the next run should propose new specs per ROUTINE_PROMPT.md's
+"Empty backlog" section. (Historical note: the 2026-07-02 proposal round
+drafted items 110/120/130, but `120-todo-balance-settling` was dropped in
+review of proposal PR #67 and was never in the backlog.)
 
 ## Recently completed
 
@@ -252,6 +258,7 @@ review and was never in the backlog. Item 110 is done (2026-07-03), leaving:
 
 | Date | Item | Repos |
 |---|---|---|
+| 2026-07-06 | Balance/history integrity hardened with data-consistency E2E tests, promoting sprint-5 Story 30 (item 130) | backend (tests) |
 | 2026-07-03 | Month-over-month income/expenses/savings trends chart on `/budgets` for locked budgets (item 110) | frontend, backend (bookkeeping) |
 | 2026-07-02 | Edit an UNLOCKED budget's month/year in place (`PUT /api/budgets/{id}` + Edit-Month pen action), keeping all line items (item 080) | backend, frontend |
 | 2026-07-01 | Lock-time transfer algorithm hardened with correctness E2E tests, promoting sprint-5 Story 32 (item 100) | backend (tests) |
